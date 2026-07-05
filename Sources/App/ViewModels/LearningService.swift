@@ -253,7 +253,7 @@ struct LearningService {
     }
 
     /// The world's facts in "drip order": round-robin across the world's tables
-    /// so star batches mix (0×3, 0×4, 1×3 — never nine ×3s in a row).
+    /// so star batches mix (0+3, 0+4, 1+3 — never nine +3s in a row).
     static func dripOrder(_ facts: [FactID]) -> [FactID] {
         let bySlot = Dictionary(grouping: facts) { Curriculum.slot(of: $0) }
         let columns = bySlot.keys.sorted().map { s in
@@ -280,7 +280,7 @@ struct LearningService {
         var queue: [PlannedQuestion] = []
         let reviews = snaps
             .filter { $0.introduced && $0.stage >= .fluency && !reviewExclude.contains($0.id)
-                    && min($0.id.a, $0.id.b) > 1 }   // rule facts (×0/×1) never need review
+                    && min($0.id.a, $0.id.b) > 1 }   // rule facts (+0/+1) never need review
             .sorted { Self.reviewWeight($0, now: now, threshold: threshold)
                     > Self.reviewWeight($1, now: now, threshold: threshold) }
             .prefix(10)
@@ -300,11 +300,12 @@ struct LearningService {
         return Self.antiRepeat(queue)
     }
 
-    /// Review priority with the hard-table boost: ×6/×7/×8 facts (his weak
-    /// tables) weigh 1.5× so they dominate reviews — and boss picks — once met.
+    /// Review priority with the hard-fact boost: CROSSING-TEN sums (e.g. 7+8,
+    /// 6+9) — the classic addition sticking point — weigh 1.5× so they dominate
+    /// reviews and boss picks once met. Tune the exact set after his first week.
     static func reviewWeight(_ s: FactSnapshot, now: Date, threshold: Double) -> Double {
         let p = PriorityCalculator.priority(of: s, now: now, fluencyThreshold: threshold)
-        let hard = [6, 7, 8].contains(s.id.a) || [6, 7, 8].contains(s.id.b)
+        let hard = s.id.sum > 10 && min(s.id.a, s.id.b) > 2
         return hard ? p * 1.5 : p
     }
 
@@ -359,10 +360,10 @@ struct LearningService {
         return Double(done) / 5.0
     }
 
-    /// Missing-factor mix, scaled to grasp: 1-in-3 of learning reps once a
+    /// Subtraction-inverse mix, scaled to grasp: 1-in-3 of learning reps once a
     /// recall fact shows grasp (2 straight correct), 1-in-3 of fluent reviews,
-    /// 1-in-2 once MASTERED — the better he knows it, the more the format
-    /// mixes it up. Never ×0 facts. Static so a debug launch arg can force it.
+    /// 1-in-2 once MASTERED — the better he knows the addition fact, the more its
+    /// subtraction flip appears. Never +0 facts. Static so a launch arg can force it.
     static var missingFactorDenominator: UInt64 = 3
     static let missingFactorMinFluent = 5
 
@@ -393,7 +394,7 @@ struct LearningService {
         for id in batch {
             let s = byID[id]
             let stage = s?.stage ?? .recognition
-            // ×0/×1 are RULE facts — no answer cards (patronizing), straight to
+            // +0/+1 are RULE facts — no answer cards (patronizing), straight to
             // keypad; one fast typed answer still tests out of recognition.
             let trivial = id.a <= 1
             if !trivial, stage == .recognition || !(s?.introduced ?? false) {
@@ -426,7 +427,7 @@ struct LearningService {
         let batchSet = Set(batch)
         let reviewSnaps = snaps
             .filter { $0.introduced && $0.stage >= .fluency && !batchSet.contains($0.id)
-                    && min($0.id.a, $0.id.b) > 1 }   // rule facts (×0/×1) never need review
+                    && min($0.id.a, $0.id.b) > 1 }   // rule facts (+0/+1) never need review
             .sorted { Self.reviewWeight($0, now: now, threshold: threshold)
                     > Self.reviewWeight($1, now: now, threshold: threshold) }
             .prefix(reviewTarget)
@@ -671,7 +672,7 @@ struct LearningService {
             let label: String
             switch e.kind {
             case .worldCleared(let n): label = "Cleared \(n)"
-            case .tableComplete(let f): label = "Table ×\(f)"
+            case .tableComplete(let f): label = "+\(f) facts"
             case .overallPercent(let p): label = "\(p)% mastered"
             case .streakThreshold(let d): label = "\(d)-day streak"
             case .completion: label = "Completed!"

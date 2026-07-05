@@ -1,12 +1,13 @@
 import Foundation
 
-/// The fluency time threshold (§4.3): starts forgiving (~3s) and tightens toward
-/// 2s as the child's baseline speed improves, with a 1s stretch for well-worn facts.
+/// The fluency time threshold (§4.3): starts forgiving (~4s, this learner is
+/// younger) and tightens toward ~2.5s as his baseline speed improves. Floor 2.0s
+/// keeps the bar age-appropriate — we don't demand sub-2s single-digit sums.
 /// Computed globally from his recent fluency-stage response times.
 public enum FluencyThreshold {
-    public static let initial: Double = 3.0
-    public static let floor: Double = 1.0
-    public static let ceiling: Double = 3.0
+    public static let initial: Double = 4.0
+    public static let floor: Double = 2.0
+    public static let ceiling: Double = 4.0
 
     /// Given the child's recent fluency-stage correct response times, return the
     /// current threshold. We track a robust centre (median) and set the bar a touch

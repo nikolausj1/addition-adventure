@@ -11,18 +11,21 @@ public struct PlannedQuestion: Sendable, Equatable {
     public let movement: SessionMovement
     public let options: [Int]?           // populated for recognition
     public let timed: Bool               // fluency-format questions are timed
-    /// Inverse form ("a × ? = product"): the typed answer is the hidden factor.
-    /// Served only as review for mastered facts — division readiness in disguise.
+    /// Inverse form: the same addition fact shown as SUBTRACTION (sum − addend),
+    /// where the typed answer is the hidden addend. This is how subtraction is
+    /// taught here — as the flip side of an addition fact the child already knows
+    /// — so it's served as review once the addition fact shows grasp.
     public var missingFactor: Bool = false
 
     public var fact: FactID { prompt.fact }
 
-    /// What the child must type/tap to be correct.
+    /// What the child must type/tap to be correct. For the subtraction form the
+    /// answer is the hidden addend: (firstFactor + secondFactor) − firstFactor.
     public var expectedAnswer: Int { missingFactor ? prompt.secondFactor : prompt.answer }
 
-    /// The plaque text, e.g. "3 × 4" or "3 × ? = 12".
+    /// The plaque text, e.g. "3 + 4" or the subtraction inverse "7 − 3 = ?".
     public var displayText: String {
-        missingFactor ? "\(prompt.firstFactor) × ? = \(prompt.answer)" : prompt.text
+        missingFactor ? "\(prompt.answer) − \(prompt.firstFactor) = ?" : prompt.text
     }
 }
 

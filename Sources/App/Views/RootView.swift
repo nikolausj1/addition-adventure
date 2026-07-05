@@ -71,6 +71,6 @@ private struct SplashView: View {
             .overlay(Image("splash").resizable().scaledToFill())
             .clipped()
             .ignoresSafeArea()
-            .accessibilityLabel("Multiplication Adventure")
+            .accessibilityLabel("Addition Adventure")
     }
 }

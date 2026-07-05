@@ -31,7 +31,7 @@ struct MasteryGridView: View {
     }
 
     private var corner: some View {
-        Image(systemName: "multiply").font(.system(size: 10, weight: .bold))
+        Image(systemName: "plus").font(.system(size: 10, weight: .bold))
             .foregroundStyle(Theme.Color.inkSoft).frame(width: 24, height: 24)
     }
 

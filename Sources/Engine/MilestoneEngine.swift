@@ -68,7 +68,7 @@ public struct ProgressAggregate: Equatable, Sendable {
 public enum MilestoneEngine {
     static let streakThresholds = [3, 7, 14, 30]
     static let percentCounts: [(pct: Int, count: Int)] = [
-        (25, 20), (50, 39), (75, 58),   // of the 77-fact universe
+        (25, 23), (50, 46), (75, 68),   // of the 91-fact universe
     ]
 
     /// Diff two aggregates and return every milestone crossed.
@@ -77,7 +77,7 @@ public enum MilestoneEngine {
 
         if after.masteredCount >= FactUniverse.count && before.masteredCount < FactUniverse.count {
             events.append(.init(kind: .completion, tier: .t4,
-                                message: "You know your multiplication tables!"))
+                                message: "You know your addition facts!"))
             // Completion supersedes everything else; nothing below would add value.
             return events
         }
@@ -97,7 +97,7 @@ public enum MilestoneEngine {
 
         for factor in after.completedFactors.subtracting(before.completedFactors).sorted() {
             events.append(.init(kind: .tableComplete(factor: factor), tier: .t2,
-                                message: "You finished the ×\(factor) table!"))
+                                message: "You finished the +\(factor) facts!"))
         }
 
         if after.streakDays > before.streakDays {

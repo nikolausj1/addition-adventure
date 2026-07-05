@@ -95,7 +95,7 @@ struct OnboardingView: View {
             Text("Ready for an adventure?")
                 .font(Theme.Font.display(44)).foregroundStyle(.white)
                 .shadow(radius: 4)
-            Text("Seven worlds of multiplication are waiting for a hero.")
+            Text("Seven worlds of addition are waiting for a hero.")
                 .font(Theme.Font.body(22)).foregroundStyle(.white.opacity(0.85))
             Button {
                 advance()

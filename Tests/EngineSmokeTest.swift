@@ -12,25 +12,40 @@ let now = Date(timeIntervalSince1970: 1_700_000_000)
 let day: TimeInterval = 86_400
 
 print("Fact universe")
-check(FactUniverse.count == 77, "77 unique facts (0s through 11s, no 11×11)")
-check(!FactUniverse.allFacts.contains(FactID(11, 11)), "11×11 is out of scope")
-check(!FactUniverse.allFacts.contains(FactID(3, 12)), "no ×12 facts")
+check(FactUniverse.count == 91, "91 unique facts (0+0 through 12+12)")
+check(FactUniverse.allFacts.contains(FactID(12, 12)), "12+12 is the summit")
 check(FactID(8, 7) == FactID(7, 8), "facts are commutative/canonical")
 check(FactUniverse.allFacts.allSatisfy { $0.a <= $0.b }, "all stored canonically")
+check(FactID(7, 8).sum == 15, "sum computes as a + b")
+
+print("Addition prompt & subtraction inverse")
+let addP = OrientedPrompt(fact: FactID(7, 8), swapped: false)
+check(addP.answer == 15 && addP.text == "7 + 8", "prompt shows addition, answers the sum")
+let subQ = PlannedQuestion(prompt: addP, format: .recall, movement: .review,
+                           options: nil, timed: false, missingFactor: true)
+check(subQ.expectedAnswer == 8, "subtraction inverse answer is the hidden addend")
+check(subQ.displayText == "15 − 7 = ?", "inverse renders as subtraction (\(subQ.displayText))")
 
 print("Curriculum")
-check(Curriculum.slot(of: FactID(0, 0)) == 0, "0×0 introduced first")
-check(Curriculum.slot(of: FactID(6, 7)) == Curriculum.introRank(ofFactor: 7), "6×7 unlocks with the 7s")
-check(Curriculum.factsBySlot().reduce(0) { $0 + $1.count } == 77, "every fact lands in a slot")
+check(Curriculum.slot(of: FactID(0, 0)) == 0, "0+0 introduced first")
+check(Curriculum.slot(of: FactID(6, 7)) == Curriculum.introRank(ofFactor: 7), "6+7 unlocks with the +7s")
+check(Curriculum.factsBySlot().reduce(0) { $0 + $1.count } == 91, "every fact lands in a slot")
+check(Curriculum.tableOrder.sorted() == Array(0...12), "curriculum covers every addend 0…12")
 
 print("Distractors")
-let prompt = OrientedPrompt(fact: FactID(7, 8), swapped: false)
+let prompt = OrientedPrompt(fact: FactID(7, 8), swapped: false)   // 7 + 8 = 15
 let opts = DistractorGenerator.options(for: prompt, seed: 42)
 check(opts.count == 4, "four options")
-check(opts.contains(56), "includes the correct answer")
+check(opts.contains(15), "includes the correct answer")
 check(Set(opts).count == 4, "options are distinct")
 check(opts.allSatisfy { $0 >= 0 }, "no negative options")
 check(DistractorGenerator.options(for: prompt, seed: 42) == opts, "deterministic for a seed")
+
+print("Rule facts fast-track")
+let ruleF = FactSnapshot(id: FactID(0, 7), introduced: true, stage: .recognition)
+check(PromotionEngine.apply(to: ruleF, correct: true, responseTime: 5, fluencyThreshold: 3,
+                            now: now).snapshot.stage == .fluency,
+      "a +0/+1 rule fact tests out to fluency on one correct")
 
 print("Leitner")
 check(LeitnerScheduler.promote(box: 0, from: now).box == 1, "correct promotes a box")
@@ -140,9 +155,10 @@ check(doneEvents.count == 1 && doneEvents[0].tier == .t4, "100% is a single T4 f
 
 print("Worlds")
 check(WorldCatalog.count == 7, "7 worlds")
-check(WorldCatalog.worldIndex(ofFact: FactID(0,0)) == 0, "0×0 is in the first world")
-check(WorldCatalog.worldIndex(ofFact: FactID(8,8)) == 6, "8×8 is in the last world (Sky Citadel = the 8s)")
-check((0..<7).reduce(0) { $0 + WorldCatalog.facts(inWorld: $1).count } == 77, "every fact maps to a world")
+check(WorldCatalog.worldIndex(ofFact: FactID(0,0)) == 0, "0+0 is in the first world")
+check(WorldCatalog.worldIndex(ofFact: FactID(8,8)) == 6, "8+8 is in the last world (the +8s land last)")
+check((0..<7).reduce(0) { $0 + WorldCatalog.facts(inWorld: $1).count } == 91, "every fact maps to a world")
+check(Set((0..<7).flatMap { WorldCatalog.worlds[$0].slots }) == Set(0...12), "worlds own every slot 0…12, no orphans")
 let freshW = FactUniverse.allFacts.map { FactSnapshot(id: $0) }
 check(WorldProgress.currentIndex(snapshots: freshW) == 0, "fresh start is on world 0")
 check(WorldProgress.clearedCount(snapshots: freshW) == 0, "nothing cleared at start")

@@ -16,7 +16,7 @@ struct DashboardView: View {
     var body: some View {
         VStack(spacing: Theme.Metric.gap) {
             card("Weekly overview") { weeklyOverview }
-            card("Times-table proficiency") { tableProficiency }
+            card("Addition facts proficiency") { tableProficiency }
             if !troubleSpots.isEmpty { card("Trouble spots") { trouble } }
             card("Mastery map") {
                 ScrollView(.horizontal, showsIndicators: false) { MasteryGridView(facts: facts).padding(4) }
@@ -165,7 +165,7 @@ struct DashboardView: View {
                 let status = tableStatus(tf)
                 let fluent = tf.filter { $0.stage >= .fluency }.count
                 HStack(spacing: 10) {
-                    Text("×\(t)").font(Theme.Font.number(17)).foregroundStyle(Theme.Color.ink)
+                    Text("+\(t)").font(Theme.Font.number(17)).foregroundStyle(Theme.Color.ink)
                         .frame(width: 42, alignment: .leading)
                     ProgressView(value: tf.isEmpty ? 0 : Double(fluent) / Double(tf.count))
                         .tint(status.color)
@@ -229,7 +229,7 @@ struct DashboardView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
                 ForEach(troubleSpots) { f in
-                    Text("\(f.a)×\(f.b)").font(Theme.Font.number(18)).foregroundStyle(Theme.Color.ink)
+                    Text("\(f.a)+\(f.b)").font(Theme.Font.number(18)).foregroundStyle(Theme.Color.ink)
                         .padding(.horizontal, 14).padding(.vertical, 8)
                         .background(Theme.Color.accent.opacity(0.15)).clipShape(Capsule())
                 }

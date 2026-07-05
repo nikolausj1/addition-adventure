@@ -116,7 +116,7 @@ struct WrapView: View {
             } else if allCleared {
                 let mastered = snapshots.filter { $0.stage == .mastered }.count
                 if mastered >= FactUniverse.count {
-                    Text("Every fact mastered — you're a Multiplication Master!")
+                    Text("Every fact mastered — you're an Addition Master!")
                         .font(Theme.Font.body()).foregroundStyle(.white)
                         .multilineTextAlignment(.center)
                 } else {

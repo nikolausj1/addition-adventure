@@ -147,7 +147,7 @@ struct MapView: View {
                         .frame(height: 118)
                         .shadow(color: .black.opacity(0.45), radius: 10, y: 5)
                 } else {
-                    Text("Multiplication Adventure")
+                    Text("Addition Adventure")
                         .font(Theme.Font.display(20)).foregroundStyle(.white).shadow(radius: 3)
                         .padding(.top, 10)
                 }

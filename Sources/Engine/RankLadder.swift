@@ -11,10 +11,10 @@ public struct Rank: Sendable, Equatable {
 public enum RankLadder {
     public static let ranks: [Rank] = [
         Rank(index: 0, name: "Novice",     masteredThreshold: 0),
-        Rank(index: 1, name: "Apprentice", masteredThreshold: 8),
-        Rank(index: 2, name: "Builder",    masteredThreshold: 22),
-        Rank(index: 3, name: "Skilled",    masteredThreshold: 42),
-        Rank(index: 4, name: "Expert",     masteredThreshold: 66),
+        Rank(index: 1, name: "Apprentice", masteredThreshold: 10),   // ~scaled to the 91-fact universe
+        Rank(index: 2, name: "Builder",    masteredThreshold: 26),
+        Rank(index: 3, name: "Skilled",    masteredThreshold: 50),
+        Rank(index: 4, name: "Expert",     masteredThreshold: 78),
         Rank(index: 5, name: "Master",     masteredThreshold: FactUniverse.count),
     ]
 

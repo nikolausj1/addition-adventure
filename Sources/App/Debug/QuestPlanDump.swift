@@ -2,8 +2,8 @@ import Foundation
 import SwiftData
 
 /// Debug (-dumpQuestPlan): simulates 10 quest sessions against the REAL engine
-/// with a synthetic learner — instant on ×0/×1 tricks and known easy tables
-/// (2/5/10), slow on first meetings with new tables — and prints every question
+/// with a synthetic learner — instant on +0/+1 rules and small/known sums,
+/// slow on first meetings with crossing-ten facts — and prints every question
 /// to stdout, one session per "day". Uses an in-memory store; real data untouched.
 @MainActor
 enum QuestPlanDump {
@@ -19,8 +19,8 @@ enum QuestPlanDump {
         var simDate = Date.now
         var exposures: [FactID: Int] = [:]   // carried across days (memory of meetings)
         // -dumpSlow: a correct-but-DELIBERATE kid — right answers, but nothing
-        // under 3.2s, so no speed-based test-outs ever fire. This is the case
-        // the fast-learner model masked (the real-world W1 grind).
+        // under 4.5s (above the 4.0s fluency ceiling), so no speed-based test-outs
+        // ever fire. This is the case the fast-learner model masks (the W1 grind).
         let slow = ProcessInfo.processInfo.arguments.contains("-dumpSlow")
 
         for session in 1...10 {
@@ -57,20 +57,22 @@ enum QuestPlanDump {
                     break
                 }
                 n += 1
-                // Learner model tuned to the target kid: ×0/×1 rules instant,
-                // 2/5/10s known; 3/4/11s warm up quickly; 6/7/8/9/12s stay slow
-                // for many exposures (his weak tables).
-                let trivial = q.fact.a <= 1 || q.fact.b <= 1
-                let easy = [2, 5, 10].contains(q.fact.a) && [2, 5, 10].contains(q.fact.b)
-                let hard = [6, 7, 8, 9, 12].contains(q.fact.a) || [6, 7, 8, 9, 12].contains(q.fact.b)
+                // Learner model tuned to the target kid: +0/+1 rules instant,
+                // small sums / doubles / +2 / +10 known; middles warm up quickly;
+                // crossing-ten facts (7+8, 6+9…) stay slow for many exposures.
+                // Subtraction inverses (missingFactor) are the slowest — new skill.
+                let trivial = min(q.fact.a, q.fact.b) <= 1
+                let easy = q.fact.a == q.fact.b || q.fact.a == 2 || q.fact.b == 2
+                    || q.fact.b == 10 || q.fact.sum <= 6
+                let hard = q.fact.sum > 10 && min(q.fact.a, q.fact.b) > 2
                 let seen = exposures[q.fact, default: 0]
                 exposures[q.fact] = seen + 1
-                let base: Double = q.missingFactor ? 6.0
-                    : trivial ? 2.0
-                    : easy ? 2.5
-                    : hard ? (seen < 2 ? 9.0 : seen < 5 ? 5.0 : seen < 8 ? 3.4 : 2.4)
-                    : (seen < 2 ? 6.0 : seen < 4 ? 3.2 : 2.2)
-                let rt = slow ? max(base, 3.2) : base
+                let base: Double = q.missingFactor ? 6.5
+                    : trivial ? 1.6
+                    : easy ? 2.4
+                    : hard ? (seen < 2 ? 8.5 : seen < 5 ? 5.0 : seen < 8 ? 3.6 : 2.6)
+                    : (seen < 2 ? 5.5 : seen < 4 ? 3.4 : 2.4)
+                let rt = slow ? max(base, 4.5) : base
                 let tag = q.format == .recognition ? "C " : (q.missingFactor ? "MF" : "K ")
                 print(String(format: "%3d [%@] %@  bar %3.0f%%", n, tag, q.displayText,
                              vm.questMeter * 100))

@@ -87,11 +87,12 @@ final class SessionViewModel {
     let isQuest: Bool
 
     /// Session rails are TIME, not question counts — "a good day's practice" is
-    /// ~12 minutes whether he's sprinting ×10s in July or grinding ×8s in August.
+    /// ~8 minutes (shorter than multiplication's 12 — this learner is younger)
+    /// whether he's sprinting +10s early or grinding +8s later.
     /// Launch args (-questFloorSeconds n / -questCeilingSeconds n) override for
     /// demo/verify runs.
-    private let floorSeconds = SessionViewModel.launchSeconds("-questFloorSeconds", fallback: 12 * 60)
-    private let ceilingSeconds = SessionViewModel.launchSeconds("-questCeilingSeconds", fallback: 20 * 60)
+    private let floorSeconds = SessionViewModel.launchSeconds("-questFloorSeconds", fallback: 8 * 60)
+    private let ceilingSeconds = SessionViewModel.launchSeconds("-questCeilingSeconds", fallback: 12 * 60)
     /// Injectable clock (the -dumpQuestPlan simulator advances virtual time).
     var now: () -> Date = { .now }
     /// The clock counts ACTIVE screen time only — a snack break (backgrounded
@@ -121,7 +122,7 @@ final class SessionViewModel {
     private var budgetBonusGranted = false
     private var effectiveBudget: Int { newFactBudget + (budgetBonusGranted ? 4 : 0) }
     /// Decided ONCE at build time: a day whose batch is mostly rule-table facts
-    /// (×0/×1/×2) runs on the short floor. A per-answer fraction oscillated as
+    /// (+0/+1/+2) runs on the short floor. A per-answer fraction oscillated as
     /// real facts chained in, and every floor re-lengthening froze the bar at
     /// its high-water mark — the "first questions matter more" illusion.
     private var shortFloorDay = false
@@ -138,10 +139,10 @@ final class SessionViewModel {
     var questComplete: Bool {
         isQuest ? (elapsed >= effectiveFloorSeconds && batchDone) : stage == .finished
     }
-    /// The habit floor, scaled: a rule-table day (batch mostly ×0/×1/×2) may
-    /// complete at 6 minutes instead of the full floor.
+    /// The habit floor, scaled: a rule-table day (batch mostly +0/+1/+2) may
+    /// complete at 5 minutes instead of the full floor.
     private var effectiveFloorSeconds: TimeInterval {
-        shortFloorDay ? min(floorSeconds, 6 * 60) : floorSeconds
+        shortFloorDay ? min(floorSeconds, 5 * 60) : floorSeconds
     }
     private var batchDone: Bool {
         questBatch.allSatisfy { service.ladderProgress($0) >= 1 }

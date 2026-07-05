@@ -1,7 +1,8 @@
 import Foundation
 
-/// A world in the Multiplication Adventure map. Identity is data-driven so art and
-/// names can change without touching logic. Names are placeholders.
+/// A world in the Addition Adventure map. Identity is data-driven so art and
+/// names can change without touching logic. Art/names are reused from the
+/// multiplication app; only the curriculum slots each world owns change.
 public struct World: Sendable, Equatable {
     public let index: Int          // 0-based
     public let name: String
@@ -46,7 +47,7 @@ public enum WorldCatalog {
               assetKey: "world6", slots: [10],
               palette: WorldPalette("#FF7A18", "#FFC93C", "#3A2C2A")),
         World(index: 6, name: "Sky Citadel",     bossName: "Storm Titan",
-              assetKey: "world7", slots: [11],
+              assetKey: "world7", slots: [11, 12],
               palette: WorldPalette("#5B4B8A", "#FFD24C", "#2A2350")),
     ]
 

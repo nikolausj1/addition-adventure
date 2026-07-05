@@ -61,7 +61,7 @@ struct CertificateView: View {
                     .foregroundStyle(Theme.Color.inkSoft)
                 Text(name).font(.system(size: 40, weight: .bold, design: .rounded))
                     .foregroundStyle(Theme.Color.primary)
-                Text("has completed Multiplication Adventure and knows the\nmultiplication tables from 0 to 12.")
+                Text("has completed Addition Adventure and knows the\naddition and subtraction facts from 0 to 12.")
                     .multilineTextAlignment(.center)
                     .font(.system(size: 17, weight: .medium, design: .rounded))
                     .foregroundStyle(Theme.Color.ink)

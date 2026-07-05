@@ -46,7 +46,7 @@ public enum PromotionEngine {
             f.box = promoted.box
             f.dueDate = promoted.due
 
-            // ×0/×1 are RULES, not facts: one correct answer (any speed) proves
+            // +0/+1 are RULES, not facts: one correct answer (any speed) proves
             // the rule — no ladder grind for material the rule already covers.
             // Mastery still needs fast answers across days, like everything else.
             if min(f.id.a, f.id.b) <= 1, f.stage < .fluency {

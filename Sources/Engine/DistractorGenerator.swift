@@ -17,33 +17,30 @@ public enum DistractorGenerator {
             if v >= 0, v != answer, !candidates.contains(v) { candidates.append(v) }
         }
 
-        // Off-by-one on each factor (the most common confusion: 7×8 -> 7×7, 7×9, 6×8, 8×8).
-        add((f1 + 1) * f2)
-        add((f1 - 1) * f2)
-        add(f1 * (f2 + 1))
-        add(f1 * (f2 - 1))
-        // Adjacent products either side.
-        add(answer + f1)
-        add(answer - f1)
-        add(answer + f2)
-        add(answer - f2)
-        // Digit transposition for two-digit answers (56 -> 65) — a real misread.
-        if answer >= 10 {
-            let tens = answer / 10, ones = answer % 10
-            add(ones * 10 + tens)
-        }
-        // Off-by-small to guarantee enough plausible fillers near the answer.
+        // Miscount by one or two — the most common addition slip (counted a finger
+        // too far or short: 7+8 -> 14, 16, 13, 17).
         add(answer + 1)
         add(answer - 1)
         add(answer + 2)
         add(answer - 2)
+        // Carry / place-value error — forgot or added an extra ten (7+8 -> 5, 25).
+        add(answer + 10)
+        add(answer - 10)
+        // Answered an addend instead of the sum (forgot to add).
+        add(max(f1, f2))
+        add(f1 + f2 + 1)   // extra reinforcement near the answer
+        // Digit transposition for two-digit answers (15 -> 51) — a real misread.
+        if answer >= 10 {
+            let tens = answer / 10, ones = answer % 10
+            add(ones * 10 + tens)
+        }
 
         // Deterministic shuffle of the candidate pool, then take three.
         var rng = SplitMix64(seed: seed)
         candidates.shuffle(using: &rng)
         var distractors = Array(candidates.prefix(3))
 
-        // Safety net: if a degenerate fact (e.g. ×0, ×1) yielded too few, pad upward.
+        // Safety net: if a small fact (e.g. +0, +1) yielded too few, pad upward.
         var pad = answer + 3
         while distractors.count < 3 {
             if pad != answer, !distractors.contains(pad) { distractors.append(pad) }
