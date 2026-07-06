@@ -35,3 +35,4 @@ targets:
         # full name "Addition Adventure" lives in the App Store record / splash art.
         INFOPLIST_KEY_CFBundleDisplayName: "Addition"
         ASSETCATALOG_COMPILER_GENERATE_ASSET_SYMBOLS: "NO"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
