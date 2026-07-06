@@ -28,10 +28,19 @@ real play test except the deploy itself.
   quest length/rollover pacing in real play?
 
 ## Verification gaps (worth closing before or right after deploy)
-- **Full-journey sim** — the 10-day sims only reached World 2. Run a long sim
-  (or seed late-world progress) to exercise Worlds 3–7: the crossing-ten worlds,
-  the +11/+12 finale, every boss fight, subtraction-inverse ramp, and the 100%
-  completion / certificate path.
+- ~~Full-journey sim~~ DONE 2026-07-06 (`-dumpDays 80 -dumpQuiet`): all 7 worlds
+  cleared / 7 bosses defeated by day ~36 (fast learner), 91/91 fluent, no crashes.
+  Subtraction served 1322×, minuends 4…24 (21 distinct). See finding below.
+- **Mastery / certificate unreachable** — the full-journey sim mastered 0/91.
+  Partly a sim artifact (synthetic learner sits on the 2.0s threshold floor), but
+  also real: `+0/+1` RULE facts are excluded from review, so after their world
+  they get no fluency reps and can never reach `.mastered` → caps mastery at 66/91,
+  so the 100%-mastered completion/certificate (MilestoneEngine `.completion`,
+  CertificateView) can't trigger. Inherited from the multiplication engine. Decide:
+  let rule facts master on their fast-track, include them in occasional review, or
+  base "completion" on fluency instead of mastery. Not blocking daily use.
+- Re-run the journey with a faster learner to confirm non-rule facts master and
+  the plateau lands at 66 (isolates the rule-fact cause from the threshold artifact).
 - **Subtraction feel** — confirm the `sum − addend = ?` questions surface at a good
   rate and read clearly to a 7-year-old. Option on the table: mix in the
   `5 + ? = 12` form too (currently pure subtraction display).

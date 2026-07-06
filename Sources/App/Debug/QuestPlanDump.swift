@@ -22,8 +22,24 @@ enum QuestPlanDump {
         // under 4.5s (above the 4.0s fluency ceiling), so no speed-based test-outs
         // ever fire. This is the case the fast-learner model masks (the W1 grind).
         let slow = ProcessInfo.processInfo.arguments.contains("-dumpSlow")
+        // -dumpDays N: how many sessions to simulate (default 10). -dumpQuiet:
+        // suppress the per-question lines (for long full-journey runs).
+        let args = ProcessInfo.processInfo.arguments
+        let cap: Int = args.firstIndex(of: "-dumpDays").flatMap { i in
+            i + 1 < args.count ? Int(args[i + 1]) : nil } ?? 10
+        let quiet = args.contains("-dumpQuiet")
+        // Full-journey stats.
+        var subQuestions = 0            // subtraction-inverse (missingFactor) served
+        var subMinuends: Set<Int> = []  // distinct minuends seen in subtraction
+        var bosses: [(String, Bool)] = []
+        func stageCounts() -> (fluentPlus: Int, mastered: Int) {
+            let all = (try? container.mainContext.fetch(FetchDescriptor<Fact>())) ?? []
+            let snaps = all.map(\.snapshot)
+            return (snaps.filter { $0.stage >= .fluency }.count,
+                    snaps.filter { $0.stage == .mastered }.count)
+        }
 
-        for session in 1...10 {
+        for session in 1...cap {
             // Boss-ready (5 sockets filled)? Fight it first, as the kid would.
             let worldIdx = service.currentWorldIdx()
             if service.starsInCurrentWorld() == 5,
@@ -39,6 +55,7 @@ enum QuestPlanDump {
                     if boss.stage == .feedback { boss.next() }
                 }
                 let bossName = WorldCatalog.worlds[safe: worldIdx]?.bossName ?? "Boss"
+                bosses.append((bossName, boss.bossPassed))
                 print("\n⚔️  BOSS FIGHT: \(bossName) — "
                       + (boss.bossPassed ? "DEFEATED, world \(worldIdx + 1) cleared!" : "held off"))
             }
@@ -46,7 +63,7 @@ enum QuestPlanDump {
             vm.now = { simDate }
             vm.clockRun()
             let world = WorldCatalog.worlds[safe: vm.worldStatBefore.index]?.name ?? "?"
-            print("\n━━━ SESSION \(session) — \(world) ━━━")
+            if !quiet { print("\n━━━ SESSION \(session) — \(world) ━━━") }
             var n = 0
             while vm.stage != .finished, n < 400 {
                 // Completion can land with the queue already exhausted — resolve
@@ -67,27 +84,57 @@ enum QuestPlanDump {
                 let hard = q.fact.sum > 10 && min(q.fact.a, q.fact.b) > 2
                 let seen = exposures[q.fact, default: 0]
                 exposures[q.fact] = seen + 1
-                let base: Double = q.missingFactor ? 6.5
+                // Well-practiced facts eventually reach fluent speed (~2.1s) so the
+                // journey can complete; new/hard facts stay slow for many exposures.
+                let base: Double = q.missingFactor ? (seen < 3 ? 6.5 : seen < 8 ? 3.5 : 2.2)
                     : trivial ? 1.6
-                    : easy ? 2.4
-                    : hard ? (seen < 2 ? 8.5 : seen < 5 ? 5.0 : seen < 8 ? 3.6 : 2.6)
-                    : (seen < 2 ? 5.5 : seen < 4 ? 3.4 : 2.4)
+                    : easy ? 2.1
+                    : hard ? (seen < 2 ? 8.5 : seen < 5 ? 5.0 : seen < 8 ? 3.4 : 2.1)
+                    : (seen < 2 ? 5.5 : seen < 4 ? 3.2 : 2.0)
                 let rt = slow ? max(base, 4.5) : base
+                if q.missingFactor { subQuestions += 1; subMinuends.insert(q.prompt.answer) }
                 let tag = q.format == .recognition ? "C " : (q.missingFactor ? "MF" : "K ")
-                print(String(format: "%3d [%@] %@  bar %3.0f%%", n, tag, q.displayText,
-                             vm.questMeter * 100))
+                if !quiet {
+                    print(String(format: "%3d [%@] %@  bar %3.0f%%", n, tag, q.displayText,
+                                 vm.questMeter * 100))
+                }
                 simDate += rt + 1.2   // answer + feedback beat
                 vm.answer(q.expectedAnswer, simulatedRT: rt)
                 vm.pendingCelebration = nil
                 if vm.stage == .feedback { vm.next() }
                 if vm.pendingStarEarned != nil { vm.starEarnedDismissed() }
             }
-            print("→ \(vm.totalAnswered) answers, ~\(Int((vm.elapsed / 60).rounded())) min, "
-                  + "star \(vm.starEarnedThisSession ? "EARNED" : "not earned"), "
-                  + "world \(service.currentWorldIdx() + 1) stars \(service.starsInCurrentWorld())/5")
+            let (fluent, mastered) = stageCounts()
+            let clearedNow = service.activeProfile().clearedWorlds.count
+            print("Day \(session): \(vm.totalAnswered) answers, "
+                  + "~\(Int((vm.elapsed / 60).rounded())) min, "
+                  + "world \(service.currentWorldIdx() + 1) ★\(service.starsInCurrentWorld())/5, "
+                  + "cleared \(clearedNow)/7, fluent \(fluent)/\(FactUniverse.count), "
+                  + "mastered \(mastered)")
             fflush(stdout)
             simDate += 86_400   // next day
+            if clearedNow >= WorldCatalog.count {
+                print("\n🏆 ADVENTURE COMPLETE — all 7 worlds cleared on day \(session) "
+                      + "(fluent \(fluent)/\(FactUniverse.count), mastered \(mastered))")
+                break
+            }
         }
+
+        // End-of-run summary.
+        let (fluent, mastered) = stageCounts()
+        let cleared = service.activeProfile().clearedWorlds.count
+        print("\n══════ FULL-JOURNEY SUMMARY ══════")
+        print("Facts fluent+: \(fluent)/\(FactUniverse.count)")
+        print("Facts mastered: \(mastered)/\(FactUniverse.count)")
+        print("Worlds cleared: \(cleared)/\(WorldCatalog.count)")
+        print("Bosses fought: " + (bosses.isEmpty ? "none"
+              : bosses.map { "\($0.0)\($0.1 ? "✓" : "✗")" }.joined(separator: ", ")))
+        print("Subtraction (inverse) questions served: \(subQuestions)")
+        if !subMinuends.isEmpty {
+            print("  subtraction minuends seen: \(subMinuends.min()!)…\(subMinuends.max()!) "
+                  + "(\(subMinuends.count) distinct)")
+        }
+        fflush(stdout)
         exit(0)
     }
 }
