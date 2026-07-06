@@ -32,16 +32,16 @@ public enum WorldCatalog {
               assetKey: "world1", slots: [0, 1, 2, 3, 4],   // +0,+1,+2,+10,+5
               palette: WorldPalette("#6BBF59", "#FFD23F", "#3B6B2E")),
         World(index: 1, name: "Shipwreck Cove",  bossName: "Tidal Kraken",
-              assetKey: "world2", slots: [5, 6],            // +9,+3
+              assetKey: "world2", slots: [5, 6],            // +3,+4
               palette: WorldPalette("#2EC4B6", "#FFE3A3", "#155E63")),
         World(index: 2, name: "Jungle Temple",   bossName: "Jade Jaguar",
-              assetKey: "world3", slots: [7, 8],            // +4,+6
+              assetKey: "world3", slots: [7, 8],            // +6,+7
               palette: WorldPalette("#2F7D32", "#FFC107", "#173B1A")),
         World(index: 3, name: "Desert Canyon",   bossName: "Sandstorm Scorpion",
-              assetKey: "world4", slots: [9],               // +7
+              assetKey: "world4", slots: [9],               // +8
               palette: WorldPalette("#E8B04B", "#28C2C2", "#8A5A22")),
         World(index: 4, name: "Frozen Summit",   bossName: "FrostFang Dragon",
-              assetKey: "world5", slots: [10],              // +8
+              assetKey: "world5", slots: [10],              // +9
               palette: WorldPalette("#5FB0E5", "#B388FF", "#1E3A5F")),
         World(index: 5, name: "Volcano Depths",  bossName: "Magma Fist",
               assetKey: "world6", slots: [11],              // +11 (big-numbers finale)
