@@ -41,11 +41,14 @@ check(Set(opts).count == 4, "options are distinct")
 check(opts.allSatisfy { $0 >= 0 }, "no negative options")
 check(DistractorGenerator.options(for: prompt, seed: 42) == opts, "deterministic for a seed")
 
-print("Rule facts fast-track")
-let ruleF = FactSnapshot(id: FactID(0, 7), introduced: true, stage: .recognition)
-check(PromotionEngine.apply(to: ruleF, correct: true, responseTime: 5, fluencyThreshold: 3,
-                            now: now).snapshot.stage == .fluency,
-      "a +0/+1 rule fact tests out to fluency on one correct")
+print("Rule facts fast-track, then master on a second correct")
+var ruleF = FactSnapshot(id: FactID(0, 7), introduced: true, stage: .recognition)
+ruleF = PromotionEngine.apply(to: ruleF, correct: true, responseTime: 5, fluencyThreshold: 3,
+                              now: now).snapshot
+check(ruleF.stage == .fluency, "a +0/+1 rule fact tests out to fluency on one correct")
+let ruleM = PromotionEngine.apply(to: ruleF, correct: true, responseTime: 5, fluencyThreshold: 3, now: now)
+check(ruleM.snapshot.stage == .mastered, "a second correct masters it (no cross-day needed)")
+check(ruleM.becameMastered, "rule-fact mastery is flagged")
 
 print("Leitner")
 check(LeitnerScheduler.promote(box: 0, from: now).box == 1, "correct promotes a box")

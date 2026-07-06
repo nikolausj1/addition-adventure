@@ -31,16 +31,15 @@ real play test except the deploy itself.
 - ~~Full-journey sim~~ DONE 2026-07-06 (`-dumpDays 80 -dumpQuiet`): all 7 worlds
   cleared / 7 bosses defeated by day ~36 (fast learner), 91/91 fluent, no crashes.
   Subtraction served 1322×, minuends 4…24 (21 distinct). See finding below.
-- **Mastery / certificate unreachable** — the full-journey sim mastered 0/91.
-  Partly a sim artifact (synthetic learner sits on the 2.0s threshold floor), but
-  also real: `+0/+1` RULE facts are excluded from review, so after their world
-  they get no fluency reps and can never reach `.mastered` → caps mastery at 66/91,
-  so the 100%-mastered completion/certificate (MilestoneEngine `.completion`,
-  CertificateView) can't trigger. Inherited from the multiplication engine. Decide:
-  let rule facts master on their fast-track, include them in occasional review, or
-  base "completion" on fluency instead of mastery. Not blocking daily use.
-- Re-run the journey with a faster learner to confirm non-rule facts master and
-  the plateau lands at 66 (isolates the rule-fact cause from the threshold artifact).
+- ~~Mastery / certificate unreachable~~ FIXED 2026-07-06: `+0/+1` rule facts were
+  excluded from review and stuck at fluency, capping mastery at 66/91 so the
+  100%-completion certificate could never trigger. PromotionEngine now masters a
+  rule fact on its second correct (both reps land in its intro session; no cross-day
+  needed — a rule isn't crammable). Post-fix journey: mastery climbs (0 → 14 by
+  adventure-end vs 0 before), all 91 now reachable with continued play. NOTE: this
+  same gap exists in the multiplication app — worth porting the fix back to Math Tutor.
+- Full 91/91 mastery takes many sessions beyond the ~36-day adventure (review
+  bandwidth is ~10 facts/session) — the certificate is a long-haul reward, by design.
 - **Subtraction feel** — confirm the `sum − addend = ?` questions surface at a good
   rate and read clearly to a 7-year-old. Option on the table: mix in the
   `5 + ? = 12` form too (currently pure subtraction display).

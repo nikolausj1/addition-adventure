@@ -87,10 +87,10 @@ enum QuestPlanDump {
                 // Well-practiced facts eventually reach fluent speed (~2.1s) so the
                 // journey can complete; new/hard facts stay slow for many exposures.
                 let base: Double = q.missingFactor ? (seen < 3 ? 6.5 : seen < 8 ? 3.5 : 2.2)
-                    : trivial ? 1.6
-                    : easy ? 2.1
-                    : hard ? (seen < 2 ? 8.5 : seen < 5 ? 5.0 : seen < 8 ? 3.4 : 2.1)
-                    : (seen < 2 ? 5.5 : seen < 4 ? 3.2 : 2.0)
+                    : trivial ? 1.5
+                    : easy ? 1.8
+                    : hard ? (seen < 2 ? 8.5 : seen < 5 ? 5.0 : seen < 8 ? 3.4 : 1.7)
+                    : (seen < 2 ? 5.5 : seen < 4 ? 3.2 : 1.6)
                 let rt = slow ? max(base, 4.5) : base
                 if q.missingFactor { subQuestions += 1; subMinuends.insert(q.prompt.answer) }
                 let tag = q.format == .recognition ? "C " : (q.missingFactor ? "MF" : "K ")
