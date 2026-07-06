@@ -6,10 +6,12 @@ import Foundation
 public enum Curriculum {
 
     /// Introduction order of the single-addend "tables", easiest first (§5):
-    /// rules (+0/+1) → +2 → +10, then +11/+12 (add-ten-plus, easy once +10 lands)
-    /// → +5/+9 (fives, make-ten) → the middles → the hard +6/+7/+8. Covers 0…12,
-    /// with 11s/12s woven in early rather than saved for a finale. Sim-tuned.
-    public static let tableOrder: [Int] = [0, 1, 2, 10, 11, 12, 5, 9, 3, 4, 6, 7, 8]
+    /// rules (+0/+1) → +2 → +10 → +5/+9 (fives, make-ten) → the middles +3/+4/+6
+    /// → the crossing-ten +7/+8, then the BIG NUMBERS +11/+12 as the finale.
+    /// Covers 0…12. 11s/12s land last so they read as the climax; because later
+    /// factors pair with everything before them they're also the largest fact
+    /// groups, so they're split across the last two worlds (never one 25-fact wall).
+    public static let tableOrder: [Int] = [0, 1, 2, 10, 5, 9, 3, 4, 6, 7, 8, 11, 12]
 
     /// Rank of a factor in the introduction order (lower = introduced earlier).
     public static func introRank(ofFactor f: Int) -> Int {

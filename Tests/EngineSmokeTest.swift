@@ -156,7 +156,7 @@ check(doneEvents.count == 1 && doneEvents[0].tier == .t4, "100% is a single T4 f
 print("Worlds")
 check(WorldCatalog.count == 7, "7 worlds")
 check(WorldCatalog.worldIndex(ofFact: FactID(0,0)) == 0, "0+0 is in the first world")
-check(WorldCatalog.worldIndex(ofFact: FactID(8,8)) == 6, "8+8 is in the last world (the +8s land last)")
+check(WorldCatalog.worldIndex(ofFact: FactID(12,12)) == 6, "12+12 is in the last world (the +12s are the finale)")
 check((0..<7).reduce(0) { $0 + WorldCatalog.facts(inWorld: $1).count } == 91, "every fact maps to a world")
 check(Set((0..<7).flatMap { WorldCatalog.worlds[$0].slots }) == Set(0...12), "worlds own every slot 0…12, no orphans")
 let freshW = FactUniverse.allFacts.map { FactSnapshot(id: $0) }
