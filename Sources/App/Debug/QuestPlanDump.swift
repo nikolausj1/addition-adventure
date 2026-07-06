@@ -42,7 +42,7 @@ enum QuestPlanDump {
         for session in 1...cap {
             // Boss-ready (5 sockets filled)? Fight it first, as the kid would.
             let worldIdx = service.currentWorldIdx()
-            if service.starsInCurrentWorld() == 5,
+            if service.starsInCurrentWorld() == WorldCatalog.starsPerWorld,
                !service.activeProfile().clearedWorlds.contains(worldIdx) {
                 let boss = SessionViewModel(service: service, boss: true, worldIndex: worldIdx)
                 boss.now = { simDate }
