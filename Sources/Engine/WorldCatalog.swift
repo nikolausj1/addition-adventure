@@ -28,9 +28,9 @@ public struct WorldPalette: Sendable, Equatable {
 /// easy, hard tables solo. New learning is scoped per world; review is cumulative.
 public enum WorldCatalog {
     public static let worlds: [World] = [
-        World(index: 0, name: "Thornvine Wilds", bossName: "Snapmaw",
+        World(index: 0, name: "The Wandering Isles", bossName: "Old Mossback",
               assetKey: "world1", slots: [0, 1, 2, 3, 4],   // +0,+1,+2,+10,+5
-              palette: WorldPalette("#C9A227", "#8FBE3F", "#5A4210")),
+              palette: WorldPalette("#EBB035", "#3FC9C0", "#2A6E68")),
         World(index: 1, name: "Giant's Grove",   bossName: "Timberjaw",
               assetKey: "world2", slots: [5, 6],            // +3,+4
               palette: WorldPalette("#3E7A34", "#E8C25A", "#1E3D18")),
@@ -46,7 +46,7 @@ public enum WorldCatalog {
         World(index: 5, name: "Thunderfall Canyon", bossName: "Cascade Colossus",
               assetKey: "world6", slots: [11],              // +11 (big-numbers finale)
               palette: WorldPalette("#5FA8D8", "#DFF3F8", "#23506B")),
-        World(index: 6, name: "Aurora Summit",   bossName: "Star Stag",
+        World(index: 6, name: "Aurora Summit",   bossName: "Frostcrown, the Aurora King",
               assetKey: "world7", slots: [12],              // +12 (summit: 12+12)
               palette: WorldPalette("#46C08A", "#B08CFF", "#141B3C")),
     ]
