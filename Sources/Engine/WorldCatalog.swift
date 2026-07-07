@@ -28,27 +28,27 @@ public struct WorldPalette: Sendable, Equatable {
 /// easy, hard tables solo. New learning is scoped per world; review is cumulative.
 public enum WorldCatalog {
     public static let worlds: [World] = [
-        World(index: 0, name: "Highland Trail",  bossName: "Granite Giant",
+        World(index: 0, name: "Thornvine Wilds", bossName: "Snapmaw",
               assetKey: "world1", slots: [0, 1, 2, 3, 4],   // +0,+1,+2,+10,+5
-              palette: WorldPalette("#6BBF59", "#FFD23F", "#3B6B2E")),
-        World(index: 1, name: "Shipwreck Cove",  bossName: "Tidal Kraken",
+              palette: WorldPalette("#C9A227", "#8FBE3F", "#5A4210")),
+        World(index: 1, name: "Giant's Grove",   bossName: "Timberjaw",
               assetKey: "world2", slots: [5, 6],            // +3,+4
-              palette: WorldPalette("#2EC4B6", "#FFE3A3", "#155E63")),
-        World(index: 2, name: "Jungle Temple",   bossName: "Jade Jaguar",
+              palette: WorldPalette("#3E7A34", "#E8C25A", "#1E3D18")),
+        World(index: 2, name: "Firefly Bayou",   bossName: "Glowfang",
               assetKey: "world3", slots: [7, 8],            // +6,+7
-              palette: WorldPalette("#2F7D32", "#FFC107", "#173B1A")),
-        World(index: 3, name: "Desert Canyon",   bossName: "Sandstorm Scorpion",
+              palette: WorldPalette("#2E8B7A", "#C6F26E", "#14323C")),
+        World(index: 3, name: "The Sunken Reef", bossName: "Shellwreck the Hermit King",
               assetKey: "world4", slots: [9],               // +8
-              palette: WorldPalette("#E8B04B", "#28C2C2", "#8A5A22")),
-        World(index: 4, name: "Frozen Summit",   bossName: "FrostFang Dragon",
+              palette: WorldPalette("#29A3C4", "#FF7E79", "#0E4A66")),
+        World(index: 4, name: "Crystal Hollows", bossName: "Geode Golem",
               assetKey: "world5", slots: [10],              // +9
-              palette: WorldPalette("#5FB0E5", "#B388FF", "#1E3A5F")),
-        World(index: 5, name: "Volcano Depths",  bossName: "Magma Fist",
+              palette: WorldPalette("#8E5BC0", "#D9A9FF", "#3A1F5E")),
+        World(index: 5, name: "Thunderfall Canyon", bossName: "Cascade Colossus",
               assetKey: "world6", slots: [11],              // +11 (big-numbers finale)
-              palette: WorldPalette("#FF7A18", "#FFC93C", "#3A2C2A")),
-        World(index: 6, name: "Sky Citadel",     bossName: "Storm Titan",
+              palette: WorldPalette("#5FA8D8", "#DFF3F8", "#23506B")),
+        World(index: 6, name: "Aurora Summit",   bossName: "Star Stag",
               assetKey: "world7", slots: [12],              // +12 (summit: 12+12)
-              palette: WorldPalette("#5B4B8A", "#FFD24C", "#2A2350")),
+              palette: WorldPalette("#46C08A", "#B08CFF", "#141B3C")),
     ]
 
     public static var count: Int { worlds.count }

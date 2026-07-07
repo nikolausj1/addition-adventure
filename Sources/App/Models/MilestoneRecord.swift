@@ -6,7 +6,7 @@ import SwiftData
 @Model
 final class MilestoneRecord {
     var profile: Profile?
-    var kindLabel: String      // e.g. "Table ×7", "Cleared Jungle Temple", "50%", "7-day streak"
+    var kindLabel: String      // e.g. "+7 facts", "Cleared Firefly Bayou", "50%", "7-day streak"
     var detail: String
     var tierRaw: Int
     var earnedDate: Date

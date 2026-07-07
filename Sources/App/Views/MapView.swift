@@ -55,7 +55,7 @@ struct MapView: View {
                 }
             }
             DriftingMist().ignoresSafeArea()
-            // The endgame reveals itself only after the Storm Titan falls: master
+            // The endgame reveals itself only after the Star Stag falls: master
             // every fact to claim the trophy certificate.
             if clearedSet.count == WorldCatalog.count, !isComplete {
                 VStack { Spacer(); masterQuestBar }
