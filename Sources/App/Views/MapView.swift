@@ -195,16 +195,16 @@ struct MapView: View {
                         .padding(.horizontal, 13).frame(height: 44).darkPlate(corner: 22)
                 }
             }
-            // Times-table reference — a lookup chart, deliberately map-only so
+            // Addition-table reference — a lookup chart, deliberately map-only so
             // it's never available mid-quest.
             Button { showTimesTable = true } label: {
-                Text("Times Table")
+                Text("Addition Table")
                     .font(Theme.Font.label(14))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 13).frame(height: 44).darkPlate(corner: 22)
             }
             .buttonStyle(PopButtonStyle())
-            .accessibilityLabel("Times tables")
+            .accessibilityLabel("Addition table")
             if let p = profile {
                 // The daily flame: lit = today's quest done; dim = not yet today.
                 // Tapping opens the streak calendar.

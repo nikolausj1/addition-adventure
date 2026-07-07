@@ -1,13 +1,13 @@
 import SwiftUI
 
-/// The times-table reference (from the map's table chip): pick a table on the
-/// left rail (×0…×11, or ALL for the full product grid) and read the answers.
+/// The addition-table reference (from the map's table chip): pick a table on the
+/// left rail (+0…+12, or ALL for the full sum grid) and read the answers.
 /// A plain answer chart — no mastery coloring — and deliberately map-only:
 /// a lookup between quests, never available mid-session.
 struct TimesTableView: View {
     @Environment(\.dismiss) private var dismiss
 
-    /// nil = the ALL product grid.
+    /// nil = the ALL sum grid.
     @State private var selectedTable: Int? = 1
 
     private static let sheetBG = Color(red: 0.09, green: 0.10, blue: 0.14)
@@ -32,7 +32,7 @@ struct TimesTableView: View {
 
     private var card: some View {
         VStack(spacing: 12) {
-            Text("TIMES TABLES")
+            Text("ADDITION TABLES")
                 .font(Theme.Font.label(20)).tracking(5)
                 .foregroundStyle(.white.opacity(0.85))
                 .padding(.top, 10)
@@ -64,7 +64,7 @@ struct TimesTableView: View {
     private var rail: some View {
         VStack(spacing: 7) {
             ForEach(0...maxFactor, id: \.self) { t in
-                railButton(label: "×\(t)", isSelected: selectedTable == t) {
+                railButton(label: "+\(t)", isSelected: selectedTable == t) {
                     selectedTable = t
                 }
             }
@@ -100,12 +100,12 @@ struct TimesTableView: View {
     // MARK: One table — 12 big equations in two tight columns
 
     private func tableList(_ t: Int) -> some View {
-        let half = (maxFactor + 2) / 2   // 0…11 → 6 rows per column
+        let half = (maxFactor + 2) / 2   // 0…12 → 7 rows per column (right col skips the 14th slot)
         return VStack(spacing: 18) {
             ForEach(0..<half, id: \.self) { row in
                 HStack(spacing: 64) {
                     equation(t, row)
-                    equation(t, row + half)
+                    if row + half <= maxFactor { equation(t, row + half) }
                 }
             }
         }
@@ -114,20 +114,20 @@ struct TimesTableView: View {
 
     private func equation(_ t: Int, _ n: Int) -> some View {
         HStack(spacing: 16) {
-            Text("\(t) × \(n)")
+            Text("\(t) + \(n)")
                 .font(Theme.Font.number(58))
                 .foregroundStyle(.white.opacity(0.92))
                 .frame(width: 250, alignment: .trailing)
             Text("=")
                 .font(Theme.Font.number(48))
                 .foregroundStyle(.white.opacity(0.45))
-            Text("\(t * n)")
+            Text("\(t + n)")
                 .font(Theme.Font.number(62))
                 .foregroundStyle(Theme.Color.accent)
                 .frame(width: 168, alignment: .leading)
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(t) times \(n) equals \(t * n)")
+        .accessibilityLabel("\(t) plus \(n) equals \(t + n)")
     }
 
     // MARK: ALL — every table's full equations, side by side
@@ -136,7 +136,7 @@ struct TimesTableView: View {
         HStack(alignment: .top, spacing: 0) {
             ForEach(0...maxFactor, id: \.self) { t in
                 VStack(spacing: 3) {
-                    Text("×\(t)")
+                    Text("+\(t)")
                         .font(Theme.Font.number(19))
                         .foregroundStyle(Theme.Color.accent)
                         .frame(maxWidth: .infinity)
@@ -144,13 +144,13 @@ struct TimesTableView: View {
                         .background(RoundedRectangle(cornerRadius: 8)
                             .fill(Color.white.opacity(0.10)))
                     ForEach(0...maxFactor, id: \.self) { n in
-                        (Text("\(t)×\(n)").foregroundColor(.white.opacity(0.85))
+                        (Text("\(t)+\(n)").foregroundColor(.white.opacity(0.85))
                          + Text("=").foregroundColor(.white.opacity(0.4))
-                         + Text("\(t * n)").foregroundColor(Theme.Color.accent))
+                         + Text("\(t + n)").foregroundColor(Theme.Color.accent))
                             .font(Theme.Font.number(16))
                             .lineLimit(1).minimumScaleFactor(0.6)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            .accessibilityLabel("\(t) times \(n) equals \(t * n)")
+                            .accessibilityLabel("\(t) plus \(n) equals \(t + n)")
                     }
                 }
                 .padding(.horizontal, 3)
