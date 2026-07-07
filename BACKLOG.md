@@ -18,14 +18,15 @@ real play test except the deploy itself.
   healthy through world 2, no rule-fact grind.
 
 ## To first play test (blocking real use)
-- **Deploy Ad Hoc IPA to Vinny's iPad** — the under-13 recipe (child account
-  sign-out → reboot → Developer Mode → sign back in; `archive` → `exportArchive`
-  method `release-testing`, team 6A4J2GTB6F → `devicectl install`). New bundle id
-  `com.levelup.addsub` may need the App ID registered (automatic signing usually
-  handles it on first archive).
-- **Fresh profile before day 1** — no dev/test data on his iPad.
+- ~~Deploy Ad Hoc IPA to Vinny's iPad~~ DONE 2026-07-07: installed & launched on
+  Vinny's iPad Air (`46BE66AB…`, UDID `00008101-00191D622251003A`, wired). App ID
+  auto-registered on archive; his device UDID needed a one-time manual registration
+  before the Ad Hoc profile would install (see CLAUDE.md §28 gotcha). Fresh install
+  → onboarding runs. (Also on Chase's iPad, intentionally left.)
 - **Watch the first real boss fight** — CRITICAL: visual lands? ~70% pass bar fair?
   quest length/rollover pacing in real play?
+- **Week-1 observation** — session length fit, speed bar, crossing-ten boost,
+  any curriculum tweaks (see "Tune after week 1").
 
 ## Verification gaps (worth closing before or right after deploy)
 - ~~Full-journey sim~~ DONE 2026-07-06 (`-dumpDays 80 -dumpQuiet`): all 7 worlds
