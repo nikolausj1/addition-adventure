@@ -63,6 +63,14 @@ struct SessionView: View {
             }
         }
         .environment(\.worldTheme, theme)
+        // A session has NO text input, but presenting it in a fullScreenCover can
+        // inherit a lingering keyboard safe-area inset (when the software keyboard
+        // was dismissing just as the cover appeared — e.g. right after the name
+        // editor). That inset shoves the centered question column up and clips the
+        // entry plate + number pad off-screen, leaving only the prompt. Ignoring
+        // the keyboard safe area wholesale is unconditionally safe here and fixes
+        // the intermittent "no way to answer" bug. (Same guard MapView uses.)
+        .ignoresSafeArea(.keyboard)
         .animation(Theme.Motion.snappy, value: vm?.stage)
         .onChange(of: scenePhase) { _, phase in
             // The quest clock counts active screen time only.
