@@ -1,9 +1,11 @@
 import SwiftUI
 
-/// Verification review ("7 × 8 = 54 — true or false?"): the equation sits on the
+/// Verification review ("7 + 8 = 14 — true or false?"): the equation sits on the
 /// world plaque and the child taps one of two big keys. Feedback lands in place —
 /// the correct key turns green and glows, the other steps back — nothing moves.
 struct TrueFalseView: View {
+    /// iPhone landscape (compact vertical): shorter keys / tighter spacing to fit.
+    @Environment(\.verticalSizeClass) private var vSize
     let question: PlannedQuestion
     let showFeedback: Bool
     let selected: Int?               // 1 = True, 0 = False, nil = unanswered
@@ -11,9 +13,10 @@ struct TrueFalseView: View {
 
     /// 1 if the shown equation is actually true.
     private var trueIsCorrect: Bool { question.expectedAnswer == 1 }
+    private var compact: Bool { vSize == .compact }
 
     var body: some View {
-        VStack(spacing: 26) {
+        VStack(spacing: compact ? 14 : 26) {
             PromptText(question.displayText)
             Text("TRUE or FALSE?")
                 .font(Theme.Font.label(16)).tracking(3)
@@ -41,10 +44,10 @@ struct TrueFalseView: View {
                                        : tint
         return Button { if !showFeedback { onSelect(value) } } label: {
             VStack(spacing: 6) {
-                Image(systemName: icon).font(.system(size: 34, weight: .heavy))
-                Text(title).font(Theme.Font.display(26))
+                Image(systemName: icon).font(.system(size: compact ? 28 : 34, weight: .heavy))
+                Text(title).font(Theme.Font.display(compact ? 22 : 26))
             }
-            .frame(maxWidth: .infinity, minHeight: 118)
+            .frame(maxWidth: .infinity, minHeight: compact ? 88 : 118)
         }
         .buttonStyle(ChunkyKeyStyle(base: base, deep: base.shaded(by: -0.35), corner: 22))
         .disabled(showFeedback)

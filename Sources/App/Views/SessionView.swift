@@ -332,12 +332,14 @@ private struct StarChip: View {
 
 /// Picks the question format and bridges feedback/advance back to the view-model.
 private struct QuestionContainer: View {
+    @Environment(\.verticalSizeClass) private var vSize
     let vm: SessionViewModel
     let question: PlannedQuestion
+    private var compact: Bool { vSize == .compact }
 
     var body: some View {
         let inFeedback = vm.stage == .feedback
-        VStack(spacing: 24) {
+        VStack(spacing: compact ? 12 : 24) {
             if question.trueFalse {
                 TrueFalseView(question: question, showFeedback: inFeedback,
                               selected: vm.lastSelected, onSelect: { vm.answer($0) })
@@ -360,7 +362,7 @@ private struct QuestionContainer: View {
                 .opacity(inFeedback ? 1 : 0)
                 .scaleEffect(inFeedback ? 1 : 0.85)
                 .allowsHitTesting(inFeedback)
-                .frame(height: 74)
+                .frame(height: compact ? 54 : 74)
         }
         .onAppear { vm.beginQuestion() }
         .animation(Theme.Motion.snappy, value: vm.stage)

@@ -9,6 +9,12 @@ struct OpenResponseView: View {
     let lastCorrect: Bool
     let onSubmit: (Int) -> Void
 
+    /// iPhone landscape reports a COMPACT vertical size class; iPad landscape is
+    /// regular. The prompt+keypad stack is tall (~500pt) and overflows the phone's
+    /// short landscape, so on compact we lay it out side-by-side instead.
+    @Environment(\.verticalSizeClass) private var vSize
+    private var compact: Bool { vSize == .compact }
+
     @State private var entry = ""
     @State private var start = Date.now
     @State private var frozenElapsed: Double?   // stops the clock at the moment of answer
@@ -16,33 +22,44 @@ struct OpenResponseView: View {
     private var answer: Int { question.prompt.answer }
 
     var body: some View {
-        VStack(spacing: 28) {
-            if timed {
-                if let frozenElapsed {
-                    timerText(frozenElapsed)
-                } else {
-                    TimelineView(.periodic(from: start, by: 0.1)) { ctx in
-                        timerText(ctx.date.timeIntervalSince(start))
-                    }
+        Group {
+            if compact {
+                // Short-landscape (iPhone): prompt + entry on the left, keypad on
+                // the right — uses the wide screen, fits the short height.
+                HStack(spacing: 28) {
+                    VStack(spacing: 16) { timerView; PromptText(question.displayText); entryField }
+                    numberPad
                 }
+            } else {
+                VStack(spacing: 28) { timerView; PromptText(question.displayText); entryField; numberPad }
             }
-
-            PromptText(question.displayText)
-
-            entryField
-
-            NumberPadView(
-                enterEnabled: !entry.isEmpty && !showFeedback,
-                onDigit: { d in
-                    guard !showFeedback, entry.count < 3 else { return }
-                    entry.append(String(d)); Feedback.fire(.keyTap)
-                },
-                onDelete: { if !showFeedback { _ = entry.popLast() } },
-                onEnter: { submit() })
-            .disabled(showFeedback)
-            .opacity(showFeedback ? 0.4 : 1)
         }
         .onAppear { start = .now }
+    }
+
+    @ViewBuilder private var timerView: some View {
+        if timed {
+            if let frozenElapsed {
+                timerText(frozenElapsed)
+            } else {
+                TimelineView(.periodic(from: start, by: 0.1)) { ctx in
+                    timerText(ctx.date.timeIntervalSince(start))
+                }
+            }
+        }
+    }
+
+    private var numberPad: some View {
+        NumberPadView(
+            enterEnabled: !entry.isEmpty && !showFeedback,
+            onDigit: { d in
+                guard !showFeedback, entry.count < 3 else { return }
+                entry.append(String(d)); Feedback.fire(.keyTap)
+            },
+            onDelete: { if !showFeedback { _ = entry.popLast() } },
+            onEnter: { submit() })
+        .disabled(showFeedback)
+        .opacity(showFeedback ? 0.4 : 1)
     }
 
     /// Fixed-size entry plate: feedback recolors the digits in place (the true

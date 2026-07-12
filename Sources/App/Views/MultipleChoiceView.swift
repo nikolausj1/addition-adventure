@@ -5,25 +5,36 @@ import SwiftUI
 /// turns green and glows, others step back. Nothing on screen moves.
 struct MultipleChoiceView: View {
     @Environment(\.worldTheme) private var theme
+    /// iPhone landscape (compact vertical): prompt beside the option grid, shorter
+    /// keys — the tall prompt-over-2×2 stack doesn't fit the short screen.
+    @Environment(\.verticalSizeClass) private var vSize
     let question: PlannedQuestion
     let showFeedback: Bool
     let selected: Int?
     let onSelect: (Int) -> Void
 
     private var answer: Int { question.prompt.answer }
+    private var compact: Bool { vSize == .compact }
     private let columns = [GridItem(.flexible(), spacing: 18), GridItem(.flexible(), spacing: 18)]
 
     var body: some View {
-        VStack(spacing: 26) {
-            PromptText(question.displayText)
-            LazyVGrid(columns: columns, spacing: 18) {
-                ForEach(question.options ?? [], id: \.self) { option in
-                    optionButton(option)
-                }
+        Group {
+            if compact {
+                HStack(spacing: 28) { PromptText(question.displayText); grid }
+            } else {
+                VStack(spacing: 26) { PromptText(question.displayText); grid }
             }
-            .frame(maxWidth: 560)
         }
         .animation(Theme.Motion.snappy, value: showFeedback)
+    }
+
+    private var grid: some View {
+        LazyVGrid(columns: columns, spacing: compact ? 12 : 18) {
+            ForEach(question.options ?? [], id: \.self) { option in
+                optionButton(option)
+            }
+        }
+        .frame(maxWidth: compact ? 360 : 560)
     }
 
     private func optionButton(_ option: Int) -> some View {
@@ -32,8 +43,8 @@ struct MultipleChoiceView: View {
         let dimmed = showFeedback && !isAnswer
         return Button { if !showFeedback { onSelect(option) } } label: {
             Text("\(option)")
-                .font(Theme.Font.number(38))
-                .frame(maxWidth: .infinity, minHeight: 92)
+                .font(Theme.Font.number(compact ? 32 : 38))
+                .frame(maxWidth: .infinity, minHeight: compact ? 66 : 92)
         }
         .buttonStyle(ChunkyKeyStyle(base: keyBase(isAnswer: isAnswer, isPicked: isPicked),
                                     deep: keyDeep(isAnswer: isAnswer),
