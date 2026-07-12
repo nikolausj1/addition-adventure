@@ -22,6 +22,8 @@ struct PlayerProfileView: View {
 
     private var profile: Profile? { activeProfiles.first }
     private static let sheetBG = Color(red: 0.09, green: 0.10, blue: 0.14)
+    @Environment(\.verticalSizeClass) private var vSize   // compact = iPhone landscape
+    private var compact: Bool { vSize == .compact }
 
     var body: some View {
         ZStack {
@@ -30,7 +32,7 @@ struct PlayerProfileView: View {
                 .onTapGesture { onClose() }
             card
                 .frame(maxWidth: 920)
-                .padding(.vertical, 26)
+                .padding(.vertical, compact ? 8 : 26)
         }
         // Keyboard must not move the GUI — the name field is in the card's
         // top row and stays visible on its own.
@@ -46,7 +48,7 @@ struct PlayerProfileView: View {
     }
 
     private var card: some View {
-        VStack(spacing: 18) {
+        VStack(spacing: compact ? 10 : 18) {
             hero
             statTiles
             guardians
@@ -279,7 +281,7 @@ struct PlayerProfileView: View {
                     .font(Theme.Font.label(16)).foregroundStyle(.white.opacity(0.6))
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 118)
+            .frame(height: compact ? 84 : 118)
             .background(RoundedRectangle(cornerRadius: 14).fill(Color.white.opacity(0.07)))
             .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(.white.opacity(0.08)))
         }

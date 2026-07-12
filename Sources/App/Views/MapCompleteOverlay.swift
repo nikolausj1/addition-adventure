@@ -8,8 +8,11 @@ struct MapCompleteOverlay: View {
     let onDone: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.verticalSizeClass) private var vSize
     @State private var shown = false      // scrim + trophy fade/scale in
     @State private var landed = false     // title slams, badges + text follow
+
+    private var compact: Bool { vSize == .compact }
 
     var body: some View {
         ZStack {
@@ -25,12 +28,12 @@ struct MapCompleteOverlay: View {
                                           colors: [Theme.Color.accent, .white,
                                                    Color(red: 1, green: 0.5, blue: 0.15)],
                                           count: 24)
-                                .frame(width: 460, height: 460)
+                                .frame(width: compact ? 280 : 460, height: compact ? 280 : 460)
                         }
                     }
 
                 Text("YOU BEAT THE MAP!")
-                    .font(Theme.Font.display(60)).foregroundStyle(.white)
+                    .font(Theme.Font.display(compact ? 38 : 60)).foregroundStyle(.white)
                     .tracking(2)
                     .shadow(color: .black.opacity(0.6), radius: 5, y: 3)
                     .scaleEffect(landed ? 1 : 1.4)

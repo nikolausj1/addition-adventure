@@ -8,7 +8,10 @@ struct CelebrationOverlay: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.worldTheme) private var worldTheme
+    @Environment(\.verticalSizeClass) private var vSize
     @State private var shown = false
+
+    private var compact: Bool { vSize == .compact }
 
     var body: some View {
         ZStack {
@@ -29,13 +32,13 @@ struct CelebrationOverlay: View {
             }
             VStack(spacing: 16) {
                 Image(systemName: symbol)
-                    .font(.system(size: tier == .t4 ? 120 : 84))
+                    .font(.system(size: compact ? (tier == .t4 ? 72 : 56) : (tier == .t4 ? 120 : 84)))
                     .foregroundStyle(Theme.Color.accent)
                     .symbolRenderingMode(.hierarchical)
                     .scaleEffect(reduceMotion ? 1 : (shown ? 1 : 0.3))
                     .rotationEffect(.degrees(reduceMotion ? 0 : (shown ? 0 : -20)))
                 Text(celebration.headline)
-                    .font(Theme.Font.display(tier == .t4 ? 40 : 30))
+                    .font(Theme.Font.display(compact ? (tier == .t4 ? 28 : 22) : (tier == .t4 ? 40 : 30)))
                     .foregroundStyle(.white).multilineTextAlignment(.center)
                 ForEach(celebration.lines, id: \.self) { line in
                     Text(line).font(Theme.Font.body()).foregroundStyle(.white.opacity(0.85))

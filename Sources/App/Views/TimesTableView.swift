@@ -6,12 +6,14 @@ import SwiftUI
 /// a lookup between quests, never available mid-session.
 struct TimesTableView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.verticalSizeClass) private var vSize   // compact = iPhone landscape
 
     /// nil = the ALL sum grid.
     @State private var selectedTable: Int? = 1
 
     private static let sheetBG = Color(red: 0.09, green: 0.10, blue: 0.14)
     private let maxFactor = FactUniverse.maxFactor
+    private var compact: Bool { vSize == .compact }
 
     var body: some View {
         ZStack {
@@ -101,9 +103,9 @@ struct TimesTableView: View {
 
     private func tableList(_ t: Int) -> some View {
         let half = (maxFactor + 2) / 2   // 0…12 → 7 rows per column (right col skips the 14th slot)
-        return VStack(spacing: 18) {
+        return VStack(spacing: compact ? 8 : 18) {
             ForEach(0..<half, id: \.self) { row in
-                HStack(spacing: 64) {
+                HStack(spacing: compact ? 24 : 64) {
                     equation(t, row)
                     if row + half <= maxFactor { equation(t, row + half) }
                 }
@@ -113,18 +115,18 @@ struct TimesTableView: View {
     }
 
     private func equation(_ t: Int, _ n: Int) -> some View {
-        HStack(spacing: 16) {
+        HStack(spacing: compact ? 10 : 16) {
             Text("\(t) + \(n)")
-                .font(Theme.Font.number(58))
+                .font(Theme.Font.number(compact ? 34 : 58))
                 .foregroundStyle(.white.opacity(0.92))
-                .frame(width: 250, alignment: .trailing)
+                .frame(width: compact ? 150 : 250, alignment: .trailing)
             Text("=")
-                .font(Theme.Font.number(48))
+                .font(Theme.Font.number(compact ? 28 : 48))
                 .foregroundStyle(.white.opacity(0.45))
             Text("\(t + n)")
-                .font(Theme.Font.number(62))
+                .font(Theme.Font.number(compact ? 38 : 62))
                 .foregroundStyle(Theme.Color.accent)
-                .frame(width: 168, alignment: .leading)
+                .frame(width: compact ? 96 : 168, alignment: .leading)
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(t) plus \(n) equals \(t + n)")
@@ -137,7 +139,7 @@ struct TimesTableView: View {
             ForEach(0...maxFactor, id: \.self) { t in
                 VStack(spacing: 3) {
                     Text("+\(t)")
-                        .font(Theme.Font.number(19))
+                        .font(Theme.Font.number(compact ? 15 : 19))
                         .foregroundStyle(Theme.Color.accent)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 4)
@@ -147,18 +149,18 @@ struct TimesTableView: View {
                         (Text("\(t)+\(n)").foregroundColor(.white.opacity(0.85))
                          + Text("=").foregroundColor(.white.opacity(0.4))
                          + Text("\(t + n)").foregroundColor(Theme.Color.accent))
-                            .font(Theme.Font.number(16))
-                            .lineLimit(1).minimumScaleFactor(0.6)
+                            .font(Theme.Font.number(compact ? 12 : 16))
+                            .lineLimit(1).minimumScaleFactor(compact ? 0.5 : 0.6)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                             .accessibilityLabel("\(t) plus \(n) equals \(t + n)")
                     }
                 }
-                .padding(.horizontal, 3)
+                .padding(.horizontal, compact ? 1 : 3)
                 if t < maxFactor {
                     Rectangle().fill(Color.white.opacity(0.08)).frame(width: 1)
                 }
             }
         }
-        .padding(10)
+        .padding(compact ? 4 : 10)
     }
 }

@@ -12,11 +12,13 @@ struct StarEarnedOverlay: View {
     let onDone: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.verticalSizeClass) private var vSize
     @State private var landed = false        // the new star has hit its socket
     @State private var impact = false        // brief shake + flash on landing
     @State private var shown = false         // scrim/text fade-in
 
-    private let starSize: CGFloat = 122
+    private var compact: Bool { vSize == .compact }
+    private var starSize: CGFloat { compact ? 80 : 122 }
 
     var body: some View {
         ZStack {
@@ -24,7 +26,7 @@ struct StarEarnedOverlay: View {
 
             VStack(spacing: 40) {
                 Text("STAR EARNED!")
-                    .font(Theme.Font.display(58)).foregroundStyle(.white)
+                    .font(Theme.Font.display(compact ? 36 : 58)).foregroundStyle(.white)
                     .tracking(2.5)
                     .shadow(color: .black.opacity(0.6), radius: 5, y: 3)
                     .scaleEffect(shown ? 1 : 0.7)
@@ -40,7 +42,7 @@ struct StarEarnedOverlay: View {
                     Text(worldName)
                         .font(Theme.Font.label(24)).foregroundStyle(.white.opacity(0.85))
                     Text(remainingText)
-                        .font(Theme.Font.body(27)).foregroundStyle(Theme.Color.accent)
+                        .font(Theme.Font.body(compact ? 18 : 27)).foregroundStyle(Theme.Color.accent)
                         .multilineTextAlignment(.center)
                 }
                 .opacity(landed ? 1 : 0)

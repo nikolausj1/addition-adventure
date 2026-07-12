@@ -6,8 +6,10 @@ import SwiftData
 /// with the child's avatar, real stats, and the seven conquered worlds.
 struct CertificateView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.verticalSizeClass) private var vSize   // compact = iPhone landscape
     @Query(filter: #Predicate<Profile> { $0.isActive }) private var activeProfiles: [Profile]
     let name: String
+    private var compact: Bool { vSize == .compact }
 
     @State private var rendered: Image?
 
@@ -16,9 +18,9 @@ struct CertificateView: View {
     private static let goldDeep = Color(hex: "#A87F2E")
 
     var body: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: compact ? 12 : 20) {
             certificate
-                .frame(width: 680, height: 470)
+                .frame(width: compact ? 440 : 680, height: compact ? 300 : 470)
                 .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
                 .shadow(color: .black.opacity(0.2), radius: 16, y: 8)
 
@@ -108,7 +110,7 @@ struct CertificateView: View {
                 }
                 .padding(.top, 8)
             }
-            .padding(.horizontal, 90).padding(.vertical, 40)
+            .padding(.horizontal, compact ? 56 : 90).padding(.vertical, compact ? 22 : 40)
         }
     }
 

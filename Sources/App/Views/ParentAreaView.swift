@@ -30,6 +30,8 @@ struct ParentAreaView: View {
 
     private let avatars = AvatarCatalog.keys
     @State private var howOpen = false
+    @Environment(\.verticalSizeClass) private var vSize   // compact = iPhone landscape
+    private var compact: Bool { vSize == .compact }
 
     var body: some View {
         ZStack {
@@ -38,9 +40,11 @@ struct ParentAreaView: View {
                 .ignoresSafeArea()
                 .onTapGesture { dismiss() }
             card
-                .frame(maxWidth: 1180, maxHeight: 850)
-                .padding(.horizontal, 40)
-                .padding(.vertical, 30)
+                // iPhone landscape (compact vertical): uncap the height so the
+                // card fits the short screen — the two columns already scroll.
+                .frame(maxWidth: 1180, maxHeight: vSize == .compact ? .infinity : 850)
+                .padding(.horizontal, vSize == .compact ? 16 : 40)
+                .padding(.vertical, vSize == .compact ? 12 : 30)
             if showGate { gateOverlay.zIndex(5) }
         }
         .presentationBackground(.clear)
@@ -138,7 +142,7 @@ struct ParentAreaView: View {
                     }
                     .padding(.bottom, Theme.Metric.pad)
                 }
-                .frame(width: 350)
+                .frame(width: compact ? 300 : 350)
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: Theme.Metric.gap) {
                         identityHeader
@@ -165,22 +169,40 @@ struct ParentAreaView: View {
     private var identityHeader: some View {
         let active = profiles.first(where: { $0.isActive })
         let known = (active?.facts ?? []).filter { $0.stage >= .fluency }.count
-        return HStack(spacing: 14) {
-            AvatarBadge(key: active?.avatarSymbol ?? avatars[0], size: 64)
+        // The three at-a-glance capsules. On the narrow iPhone dashboard column
+        // they don't fit beside the name (they'd compress and wrap vertically),
+        // so compact drops them to their own full-width row under the name.
+        let capsules = HStack(spacing: 8) {
+            statCapsule("star.fill", "\(active?.questStars ?? 0) stars", Theme.Color.accent)
+            statCapsule("flame.fill", "\(active?.streakDays ?? 0)-day streak",
+                        Color(red: 0.93, green: 0.42, blue: 0.13))
+            statCapsule("bolt.fill", "\(known) of \(FactUniverse.count) facts", Theme.Color.primary)
+        }
+        let idRow = HStack(spacing: 14) {
+            AvatarBadge(key: active?.avatarSymbol ?? avatars[0], size: compact ? 48 : 64)
             VStack(alignment: .leading, spacing: 3) {
                 Text(active?.name ?? "Champion")
-                    .font(Theme.Font.display(26)).foregroundStyle(Theme.Color.ink)
+                    .font(Theme.Font.display(compact ? 22 : 26)).foregroundStyle(Theme.Color.ink)
                     .lineLimit(1).minimumScaleFactor(0.7)
                 if let g = active?.grade, !g.isEmpty {
                     Text(g == "Pre-K" || g == "K" ? "Going into \(g)" : "Going into grade \(g)")
                         .font(Theme.Font.label(14)).foregroundStyle(Theme.Color.inkSoft)
                 }
             }
-            Spacer(minLength: 12)
-            statCapsule("star.fill", "\(active?.questStars ?? 0) stars", Theme.Color.accent)
-            statCapsule("flame.fill", "\(active?.streakDays ?? 0)-day streak",
-                        Color(red: 0.93, green: 0.42, blue: 0.13))
-            statCapsule("bolt.fill", "\(known) of \(FactUniverse.count) facts", Theme.Color.primary)
+            if !compact {
+                Spacer(minLength: 12)
+                capsules
+            }
+        }
+        return Group {
+            if compact {
+                VStack(alignment: .leading, spacing: 12) {
+                    idRow
+                    capsules
+                }
+            } else {
+                idRow
+            }
         }
         .padding(Theme.Metric.pad)
         .frame(maxWidth: 720)
@@ -190,7 +212,7 @@ struct ParentAreaView: View {
     private func statCapsule(_ icon: String, _ text: String, _ tint: Color) -> some View {
         HStack(spacing: 6) {
             Image(systemName: icon).font(.system(size: 13, weight: .semibold))
-            Text(text).font(Theme.Font.label(14))
+            Text(text).font(Theme.Font.label(14)).lineLimit(1).fixedSize()
         }
         .foregroundStyle(tint)
         .padding(.horizontal, 12).padding(.vertical, 8)

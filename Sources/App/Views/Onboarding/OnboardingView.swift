@@ -7,6 +7,12 @@ struct OnboardingView: View {
     @Environment(\.modelContext) private var context
     @Query(filter: #Predicate<Profile> { $0.isActive }) private var activeProfiles: [Profile]
 
+    /// iPhone landscape = compact vertical: shrink titles/avatar/keys so a step
+    /// (especially the name field + Next) stays above the software keyboard, which
+    /// covers the bottom ~55% of the short landscape screen.
+    @Environment(\.verticalSizeClass) private var vSize
+    private var compact: Bool { vSize == .compact }
+
     private enum Step: Int, CaseIterable { case welcome, name, grade, avatar, ready }
     @State private var step: Step = .welcome
     @State private var name = ""
@@ -93,10 +99,10 @@ struct OnboardingView: View {
     private var welcomePage: some View {
         VStack(spacing: 24) {
             Text("Ready for an adventure?")
-                .font(Theme.Font.display(44)).foregroundStyle(.white)
+                .font(Theme.Font.display(compact ? 30 : 44)).foregroundStyle(.white)
                 .shadow(radius: 4)
             Text("Seven worlds of addition are waiting for a hero.")
-                .font(Theme.Font.body(22)).foregroundStyle(.white.opacity(0.85))
+                .font(Theme.Font.body(compact ? 16 : 22)).foregroundStyle(.white.opacity(0.85))
             Button {
                 advance()
             } label: {
@@ -112,9 +118,9 @@ struct OnboardingView: View {
     }
 
     private var namePage: some View {
-        VStack(spacing: 22) {
+        VStack(spacing: compact ? 12 : 22) {
             Text("What's your name, adventurer?")
-                .font(Theme.Font.display(30)).foregroundStyle(.white)
+                .font(Theme.Font.display(compact ? 22 : 30)).foregroundStyle(.white)
                 .shadow(radius: 4)
             HStack(spacing: 12) {
                 TextField("", text: $name, prompt: Text("Your name")
@@ -174,23 +180,23 @@ struct OnboardingView: View {
     private var avatarPage: some View {
         VStack(spacing: 18) {
             Text("Pick your explorer!")
-                .font(Theme.Font.display(30)).foregroundStyle(.white)
+                .font(Theme.Font.display(compact ? 22 : 30)).foregroundStyle(.white)
                 .shadow(radius: 4)
-            AvatarCarousel(selected: $avatarKey, itemSize: 230)
+            AvatarCarousel(selected: $avatarKey, itemSize: compact ? 150 : 230)
             nextButton
                 .padding(.top, 20)
         }
     }
 
     private var readyPage: some View {
-        VStack(spacing: 24) {
-            AvatarBadge(key: avatarKey, size: 230)
+        VStack(spacing: compact ? 12 : 24) {
+            AvatarBadge(key: avatarKey, size: compact ? 130 : 230)
                 .shadow(color: Theme.Color.accent.opacity(0.4), radius: 20)
             Text("You're ready, \(name.trimmingCharacters(in: .whitespaces))!")
-                .font(Theme.Font.display(46)).foregroundStyle(.white)
+                .font(Theme.Font.display(compact ? 28 : 46)).foregroundStyle(.white)
                 .shadow(radius: 4)
             Text("Seven worlds. Seven guardians. Let's go!")
-                .font(Theme.Font.body(24)).foregroundStyle(.white.opacity(0.85))
+                .font(Theme.Font.body(compact ? 16 : 24)).foregroundStyle(.white.opacity(0.85))
             Button {
                 finish()
             } label: {
