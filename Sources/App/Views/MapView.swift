@@ -78,11 +78,17 @@ struct MapView: View {
             // Full-bleed title banner: painted sky fades into the map's fog.
             if Art.exists("map_banner") {
                 VStack(spacing: 0) {
-                    // Full-bleed on iPad; on the short iPhone landscape the
-                    // full-width banner would scale to ~70% of the height and
-                    // bury the top row of nodes, so cap its height there.
-                    Image("map_banner").resizable().scaledToFit()
-                        .frame(maxHeight: compact ? 150 : .infinity)
+                    // Full-bleed, top-pinned on iPad (natural fitted height). On the
+                    // short iPhone landscape the full-width banner would scale to
+                    // ~70% of the height and bury the top row of nodes, so cap it
+                    // there. NOTE: never use `.frame(maxHeight: .infinity)` on a
+                    // scaledToFit image — it expands the frame and centers the art
+                    // vertically, floating the banner into the middle of the screen.
+                    if compact {
+                        Image("map_banner").resizable().scaledToFit().frame(maxHeight: 150)
+                    } else {
+                        Image("map_banner").resizable().scaledToFit()
+                    }
                     Spacer(minLength: 0)
                 }
                 .ignoresSafeArea(edges: [.top, .horizontal])

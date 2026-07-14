@@ -76,6 +76,12 @@ struct SessionView: View {
             // The quest clock counts active screen time only.
             if phase == .active { vm?.clockRun() } else { vm?.clockPause() }
         }
+        // Belt-and-suspenders for the "no keypad" bug: `.ignoresSafeArea(.keyboard)`
+        // above should neutralize the inset, but the fullScreenCover's UIKit host
+        // can still apply keyboard avoidance mid-present-animation on some iOS
+        // versions. Killing any lingering first responder the instant the session
+        // appears removes the inset at its source, so the pad can never be clipped.
+        .onAppear { Self.dismissKeyboard() }
         .onAppear {
             guard vm == nil, !showWorldIntro else { return }
             let args = ProcessInfo.processInfo.arguments
@@ -88,6 +94,16 @@ struct SessionView: View {
             }
             buildVM()
         }
+    }
+
+    /// Resign any active first responder so a lingering software keyboard (raised
+    /// on the previous screen — the name editor, a profile rename, etc.) is fully
+    /// dismissed before its safe-area inset can squeeze this session's layout.
+    private static func dismissKeyboard() {
+        #if canImport(UIKit)
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder),
+                                        to: nil, from: nil, for: nil)
+        #endif
     }
 
     private func buildVM() {
