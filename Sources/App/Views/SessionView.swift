@@ -3,12 +3,16 @@ import SwiftData
 
 struct SessionView: View {
     @Environment(\.modelContext) private var context
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.verticalSizeClass) private var vSize   // .compact = iPhone landscape
     var worldIndex: Int = 0
     var speedRound: Bool = false
     var boss: Bool = false
     var testFormat: MasteryStage? = nil
+    /// Presented as an in-hierarchy overlay (NOT a fullScreenCover — a cover's
+    /// hosting layer applies a lingering keyboard inset that ignoresSafeArea
+    /// can't override, clipping the number pad; see PlayerProfileView). The
+    /// owner tears the overlay down through this.
+    var onClose: () -> Void = {}
 
     @State private var vm: SessionViewModel?
     /// First-ever visit to this world: hold the questions and let the kid take
@@ -27,9 +31,9 @@ struct SessionView: View {
                 if vm.stage == .finished {
                     if vm.didPause {
                         // Paused for the day — straight back to the map, no wrap.
-                        Color.clear.onAppear { dismiss() }
+                        Color.clear.onAppear { onClose() }
                     } else {
-                        WrapView(vm: vm) { dismiss() }.transition(.opacity)
+                        WrapView(vm: vm) { onClose() }.transition(.opacity)
                     }
                 } else {
                     active(vm)
@@ -62,31 +66,21 @@ struct SessionView: View {
                 .transition(.opacity)
             }
         }
-        .environment(\.worldTheme, theme)
-        // A session has NO text input, but presenting it in a fullScreenCover can
-        // inherit a lingering keyboard safe-area inset (when the software keyboard
-        // was dismissing just as the cover appeared — e.g. right after the name
-        // editor). That inset shoves the centered question column up and clips the
-        // entry plate + number pad off-screen, leaving only the prompt. Ignoring
-        // the keyboard safe area wholesale is unconditionally safe here and fixes
-        // the intermittent "no way to answer" bug. (Same guard MapView uses.)
+        // A session has no text input; freeze the layout against any keyboard
+        // that's still animating away when the session opens (e.g. right after
+        // the name editor). This works because the session is an in-hierarchy
+        // overlay — inside a fullScreenCover this modifier is IGNORED (the
+        // cover's hosting layer applies the inset first), which is why the
+        // pad kept getting clipped despite it.
         .ignoresSafeArea(.keyboard)
+        .environment(\.worldTheme, theme)
         .animation(Theme.Motion.snappy, value: vm?.stage)
-        .onChange(of: scenePhase) { _, phase in
-            // The quest clock counts active screen time only.
-            if phase == .active { vm?.clockRun() } else { vm?.clockPause() }
-        }
-        // Belt-and-suspenders for the "no keypad" bug: `.ignoresSafeArea(.keyboard)`
-        // above should neutralize the inset, but the fullScreenCover's UIKit host
-        // can still apply keyboard avoidance mid-present-animation on some iOS
-        // versions. Killing any lingering first responder the instant the session
-        // appears removes the inset at its source, so the pad can never be clipped.
-        .onAppear { Self.dismissKeyboard() }
         .onAppear {
             guard vm == nil, !showWorldIntro else { return }
             let args = ProcessInfo.processInfo.arguments
             let isQuest = !speedRound && !boss && testFormat == nil
             let verifyLaunch = args.contains("-autostartSession")   // debug autoplay skips the reveal
+                || args.contains("-demoKeyboardSession")
             if isQuest, args.contains("-forceWorldIntro")
                 || (!verifyLaunch && !LearningService(context: context).activeProfile().hasSeenWorldIntro(worldIndex)) {
                 showWorldIntro = true   // vm builds when the curtain lifts
@@ -96,15 +90,6 @@ struct SessionView: View {
         }
     }
 
-    /// Resign any active first responder so a lingering software keyboard (raised
-    /// on the previous screen — the name editor, a profile rename, etc.) is fully
-    /// dismissed before its safe-area inset can squeeze this session's layout.
-    private static func dismissKeyboard() {
-        #if canImport(UIKit)
-        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder),
-                                        to: nil, from: nil, for: nil)
-        #endif
-    }
 
     private func buildVM() {
         let args = ProcessInfo.processInfo.arguments
