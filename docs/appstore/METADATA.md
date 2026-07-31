@@ -112,7 +112,7 @@ feels right for your kid's grade.
 
 ### Test information (contact)
 
-- Feedback email: **claude@justinnikolaus.com**
+- Feedback email: **dev@justinnikolaus.com**
 - Marketing URL: (optional) your GitHub repo or leave blank
 - Privacy Policy URL: **[hosted privacy-policy.html URL — see SUBMISSION.md]**
 

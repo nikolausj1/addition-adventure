@@ -19,10 +19,10 @@ real play test except the deploy itself.
 
 ## To first play test (blocking real use)
 - ~~Deploy Ad Hoc IPA to Vinny's iPad~~ DONE 2026-07-07: installed & launched on
-  Vinny's iPad Air (`46BE66AB…`, UDID `00008101-00191D622251003A`, wired). App ID
-  auto-registered on archive; his device UDID needed a one-time manual registration
-  before the Ad Hoc profile would install (see CLAUDE.md §28 gotcha). Fresh install
-  → onboarding runs. (Also on Chase's iPad, intentionally left.)
+  Vinny's iPad Air (wired). App ID auto-registered on archive; his device needed
+  a one-time manual UDID registration before the Ad Hoc profile would install
+  (see CLAUDE.md §28 gotcha). Fresh install → onboarding runs. (Also on Chase's
+  iPad, intentionally left.)
 - **Watch the first real boss fight** — CRITICAL: visual lands? ~70% pass bar fair?
   quest length/rollover pacing in real play?
 - **Week-1 observation** — session length fit, speed bar, crossing-ten boost,
