@@ -140,30 +140,107 @@ struct PlayerProfileView: View {
     // MARK: Guardian pedestal gallery
 
     private var guardians: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: compact ? 6 : 10) {
             Text("GUARDIANS DEFEATED")
-                .font(Theme.Font.label(14)).tracking(3)
+                .font(Theme.Font.label(compact ? 12 : 14)).tracking(3)
                 .foregroundStyle(.white.opacity(0.6))
-            // Two rows (4 + 3) so the portraits get real width.
-            VStack(spacing: 12) {
-                HStack(spacing: 12) {
-                    ForEach(WorldCatalog.worlds.prefix(4), id: \.index) { world in
-                        trophyTile(world)
+            if compact {
+                // The short iPhone landscape card has no vertical room for a
+                // 2-row grid (maxHeight: .infinity collapsed the portraits to
+                // near-zero height, leaving only the name text visible) — a
+                // single fixed-size horizontally-scrolling row guarantees the
+                // art always renders at a real, legible size.
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(WorldCatalog.worlds, id: \.index) { world in
+                            compactTrophyTile(world)
+                        }
                     }
                 }
-                .frame(maxHeight: .infinity)
-                HStack(spacing: 12) {
-                    ForEach(WorldCatalog.worlds.dropFirst(4), id: \.index) { world in
-                        trophyTile(world)
+            } else {
+                // Two rows (4 + 3) so the portraits get real width.
+                VStack(spacing: 12) {
+                    HStack(spacing: 12) {
+                        ForEach(WorldCatalog.worlds.prefix(4), id: \.index) { world in
+                            trophyTile(world)
+                        }
                     }
+                    .frame(maxHeight: .infinity)
+                    HStack(spacing: 12) {
+                        ForEach(WorldCatalog.worlds.dropFirst(4), id: \.index) { world in
+                            trophyTile(world)
+                        }
+                    }
+                    .frame(maxHeight: .infinity)
                 }
-                .frame(maxHeight: .infinity)
             }
         }
-        .padding(16)
+        .padding(compact ? 10 : 16)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.white.opacity(0.05),
                     in: RoundedRectangle(cornerRadius: Theme.Metric.corner))
+    }
+
+    /// Compact (iPhone landscape) trophy card: fixed-size so it can never
+    /// collapse to zero height the way the iPad grid's maxHeight did.
+    private func compactTrophyTile(_ world: World) -> some View {
+        let cleared = profile?.clearedWorlds.contains(world.index) ?? false
+        let selected = selectedTrophy == world.index
+        return Button {
+            guard cleared else { return }
+            selectedTrophy = selected ? nil : world.index
+            Feedback.fire(.keyTap)
+        } label: {
+            VStack(spacing: 4) {
+                ZStack(alignment: .topTrailing) {
+                    Group {
+                        if cleared, Art.exists("\(world.assetKey)_boss") {
+                            Image("\(world.assetKey)_boss").resizable().scaledToFit()
+                        } else if cleared {
+                            Image(systemName: "shield.fill")
+                                .font(.system(size: 22))
+                                .foregroundStyle(.white.opacity(0.5))
+                        } else {
+                            Image(systemName: "lock.fill")
+                                .font(.system(size: 24, weight: .bold))
+                                .foregroundStyle(.white.opacity(0.25))
+                        }
+                    }
+                    .frame(width: 58, height: 58)
+                    if cleared {
+                        Text("DEFEATED")
+                            .font(Theme.Font.label(9)).tracking(0.5)
+                            .foregroundStyle(Color(red: 0.9, green: 0.16, blue: 0.14))
+                            .padding(.horizontal, 4).padding(.vertical, 2)
+                            .background(Capsule().fill(.black.opacity(0.45)))
+                            .rotationEffect(.degrees(4))
+                            .offset(x: 8, y: -6)
+                    }
+                }
+                if cleared {
+                    Text(world.bossName)
+                        .font(Theme.Font.label(11))
+                        .foregroundStyle(.white)
+                        .lineLimit(1).minimumScaleFactor(0.6)
+                }
+            }
+            .padding(6)
+            .frame(width: 92, height: 96)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(cleared
+                          ? AnyShapeStyle(LinearGradient(
+                                colors: [Theme.Color.accent.opacity(0.28),
+                                         Theme.Color.accent.opacity(0.10)],
+                                startPoint: .top, endPoint: .bottom))
+                          : AnyShapeStyle(Color.white.opacity(0.04))))
+            .overlay(RoundedRectangle(cornerRadius: 12)
+                .strokeBorder(cleared ? Theme.Color.accent.opacity(selected ? 0.9 : 0.35)
+                                      : .white.opacity(0.08),
+                              lineWidth: selected ? 2 : 1))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(cleared ? "\(world.bossName), defeated" : "Guardian not yet defeated")
     }
 
     private func trophyTile(_ world: World) -> some View {
@@ -297,7 +374,7 @@ struct PlayerProfileView: View {
             Text(label()).font(Theme.Font.label(16)).foregroundStyle(.white.opacity(0.65))
         }
         .frame(maxWidth: .infinity)
-        .frame(height: 118)
+        .frame(height: compact ? 84 : 118)
         .background(RoundedRectangle(cornerRadius: 14).fill(Color.white.opacity(0.07)))
         .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(.white.opacity(0.08)))
     }
