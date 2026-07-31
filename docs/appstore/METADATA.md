@@ -114,7 +114,7 @@ feels right for your kid's grade.
 
 - Feedback email: **dev@justinnikolaus.com**
 - Marketing URL: (optional) your GitHub repo or leave blank
-- Privacy Policy URL: **[hosted privacy-policy.html URL — see SUBMISSION.md]**
+- Privacy Policy URL: **https://nikolausj1.github.io/addition-adventure/privacy-policy.html**
 
 ---
 
@@ -128,9 +128,9 @@ feels right for your kid's grade.
 | Age rating | **4+** (answer "None/No" to every questionnaire item, same as the sibling) |
 | Price | **Free** |
 | Made for Kids category | **Recommend NO for v1**, same call as the sibling — Education + 4+ is fully appropriate and skips the stricter Kids-category review. Can opt in later. |
-| Support URL | **[required — can be the GitHub repo URL or a simple page]** |
+| Support URL | `https://github.com/nikolausj1/addition-adventure` (repo is now public — swap for a nicer page later if you want) |
 | Marketing URL | Optional |
-| Privacy Policy URL | **[hosted privacy-policy.html URL]** |
+| Privacy Policy URL | `https://nikolausj1.github.io/addition-adventure/privacy-policy.html` (live, confirmed 200) |
 | Copyright | `2026 Justin Nikolaus` |
 | Availability | **[all countries, or just your own to start]** |
 | Content rights | Contains no third-party content (art is your own/AI-generated, audio is Kenney CC0) |

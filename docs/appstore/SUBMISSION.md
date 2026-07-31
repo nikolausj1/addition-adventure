@@ -20,27 +20,13 @@ in [METADATA.md](METADATA.md); the privacy policy to host is
 
 ### A. Host the privacy policy → get a URL
 
-**Not yet done for this app** — this repo has no public GitHub remote (the
-sibling's is public: `nikolausj1/multiplication-adventure`, and its policy
-lives at `nikolausj1.github.io/multiplication-adventure/privacy-policy.html`).
-Three options, in order of how much new public surface they create:
+**Done (2026-07-31).** Went with option 1 — new public repo mirroring the
+sibling exactly: [`nikolausj1/addition-adventure`](https://github.com/nikolausj1/addition-adventure),
+GitHub Pages enabled (`main` / `/docs`). Live and confirmed (HTTP 200) at:
 
-1. **New public repo for Addition Adventure**, GitHub Pages enabled — cleanest,
-   mirrors the sibling exactly, gives this app its own public home (matches
-   CLAUDE.md's eventual public-repo plan for both apps). Needs: create the repo,
-   push this code (or at least `docs/`), enable Pages (Settings → Pages →
-   Build from a branch → `main` / `/docs`).
-2. **Add a page to the existing public multiplication-adventure repo** (e.g.
-   `addition-privacy-policy.html` alongside the current one) — reuses Pages
-   infra already live, avoids creating a new public repo, but mixes the two
-   apps' docs in one place.
-3. **Any other public static host** — a Notion page set to public, a GitHub
-   Gist rendered via a Pages-style viewer, etc. Slower to verify than the two
-   above.
+> **https://nikolausj1.github.io/addition-adventure/privacy-policy.html**
 
-**This step needs your call** — creating new public surface (a repo, or a page
-in an existing public repo) isn't something to do without asking. Say which
-option and I'll execute it.
+Use that URL wherever ASC asks for a Privacy Policy URL.
 
 ### B. Decide the public app name
 
@@ -126,9 +112,14 @@ Since this app is **universal**, App Store requires BOTH:
 - **6.9-inch iPhone**: 1320×2868 portrait or 2868×1320 landscape.
 
 (The sibling only needed the iPad set, being iPad-only — this is the one real
-extra step Addition has that Multiplication didn't.) A set for both is being
-prepared in `docs/appstore/screenshots/ipad/` and `.../iphone/`. 1 minimum, up
-to 10 per device family; the order you set is the order shown.
+extra step Addition has that Multiplication didn't.)
+
+**Done (2026-07-31).** Five screens each (map, session, boss fight, trophy
+room, certificate), exact required pixel dimensions confirmed, in
+`docs/appstore/screenshots/ipad/` and `.../iphone/`. The iPhone pass also
+turned up and fixed two real compact-layout bugs (trophy portraits not
+rendering, certificate title clipping) — see commit `c8bed7a`. Upload in
+the order 01→05; that's the order they'll show.
 
 ### 2. Version metadata
 
