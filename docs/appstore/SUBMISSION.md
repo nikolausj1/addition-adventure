@@ -114,12 +114,16 @@ Since this app is **universal**, App Store requires BOTH:
 (The sibling only needed the iPad set, being iPad-only — this is the one real
 extra step Addition has that Multiplication didn't.)
 
-**Done (2026-07-31).** Five screens each (map, session, boss fight, trophy
-room, certificate), exact required pixel dimensions confirmed, in
-`docs/appstore/screenshots/ipad/` and `.../iphone/`. The iPhone pass also
-turned up and fixed two real compact-layout bugs (trophy portraits not
-rendering, certificate title clipping) — see commit `c8bed7a`. Upload in
-the order 01→05; that's the order they'll show.
+**Done (2026-07-31).** Four screens each (map, live question, boss fight in
+progress, Addition Table reference), exact required pixel dimensions
+confirmed, in `docs/appstore/screenshots/ipad/` and `.../iphone/`.
+Deliberately excludes the certificate of mastery and the all-guardians-
+defeated trophy room — Justin's call, keep the ending a surprise. The
+iPhone pass also turned up and fixed two real compact-layout bugs (trophy
+portraits not rendering, certificate title clipping) — see commit
+`c8bed7a` — those fixes ship in the app even though the screenshots
+themselves don't show that screen. Upload in the order 01→04; that's the
+order they'll show.
 
 ### 2. Version metadata
 
