@@ -5,6 +5,8 @@ import SwiftUI
 /// equation and a Continue key — never a buzzer or red (§3).
 struct FeedbackBar: View {
     @Environment(\.worldTheme) private var theme
+    @Environment(\.verticalSizeClass) private var vSize   // compact = iPhone landscape
+    private var compact: Bool { vSize == .compact }
     let correct: Bool
     let equation: String           // e.g. "7 × 8 = 56", shown on a miss
     let xp: Int
@@ -18,12 +20,12 @@ struct FeedbackBar: View {
     private static let flameColor = Color(red: 1, green: 0.5, blue: 0.15)
 
     var body: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: compact ? 8 : 14) {
             // The lead icon reads the moment: a lightning bolt when it was fast,
             // otherwise a plain check. A miss shows the hint bulb.
             Image(systemName: !correct ? "lightbulb.fill" : (wasFast ? "bolt.fill" : "checkmark.circle.fill"))
                 .foregroundStyle(!correct ? Theme.Color.accent : (wasFast ? Self.speedColor : Theme.Color.correct))
-                .font(.system(size: 26))
+                .font(.system(size: compact ? 17 : 26))
                 .background {
                     if correct {
                         // Streak milestone → big warm burst; a fast answer → a
@@ -33,45 +35,47 @@ struct FeedbackBar: View {
                                         ? [Theme.Color.accent, Self.flameColor, .white]
                                         : (wasFast ? [Self.speedColor, .white] : [Theme.Color.accent, .white]),
                                       count: hotStreak > 0 ? 18 : (wasFast ? 14 : 8))
-                            .frame(width: 120, height: 120)
+                            .frame(width: compact ? 80 : 120, height: compact ? 80 : 120)
                     }
                 }
             VStack(alignment: .leading, spacing: 1) {
                 Text(correct ? message : equation)
-                    .font(correct ? Theme.Font.body(19) : Theme.Font.number(24))
+                    .font(correct ? Theme.Font.body(compact ? 13 : 19) : Theme.Font.number(compact ? 16 : 24))
                     .foregroundStyle(.white)
+                    .lineLimit(1).minimumScaleFactor(0.7)
                 // Sub-badges stack: speed (bolt) and/or streak (flame), each
                 // self-explaining so the kid learns which reward is which.
-                HStack(spacing: 10) {
+                HStack(spacing: compact ? 6 : 10) {
                     if mastered {
                         Label("Fact mastered!", systemImage: "star.fill")
-                            .font(Theme.Font.label(13)).foregroundStyle(Theme.Color.accent)
+                            .font(Theme.Font.label(compact ? 10 : 13)).foregroundStyle(Theme.Color.accent)
                     } else {
                         if wasFast {
                             Label("Speed bonus!", systemImage: "bolt.fill")
-                                .font(Theme.Font.label(14)).foregroundStyle(Self.speedColor)
+                                .font(Theme.Font.label(compact ? 10 : 14)).foregroundStyle(Self.speedColor)
                         }
                         if hotStreak > 0 {
                             Label(streakText, systemImage: "flame.fill")
-                                .font(Theme.Font.label(14)).foregroundStyle(Self.flameColor)
+                                .font(Theme.Font.label(compact ? 10 : 14)).foregroundStyle(Self.flameColor)
+                                .lineLimit(1).minimumScaleFactor(0.7)
                         }
                     }
                 }
             }
             if correct && xp > 0 {
-                Text("+\(xp)").font(Theme.Font.number(20)).foregroundStyle(Theme.Color.accent)
+                Text("+\(xp)").font(Theme.Font.number(compact ? 14 : 20)).foregroundStyle(Theme.Color.accent)
             }
             if showsContinue {
                 Button(action: onContinue) {
-                    Text("Continue").font(Theme.Font.label(17))
-                        .padding(.horizontal, 22).padding(.vertical, 11)
+                    Text("Continue").font(Theme.Font.label(compact ? 13 : 17))
+                        .padding(.horizontal, compact ? 12 : 22).padding(.vertical, compact ? 6 : 11)
                 }
                 .buttonStyle(ChunkyKeyStyle(base: theme.primary, deep: theme.deep, corner: 14))
-                .padding(.leading, 6)
+                .padding(.leading, compact ? 3 : 6)
             }
         }
-        .padding(.horizontal, 22).padding(.vertical, 13)
-        .darkPlate(corner: 26)
+        .padding(.horizontal, compact ? 12 : 22).padding(.vertical, compact ? 6 : 13)
+        .darkPlate(corner: compact ? 18 : 26)
         .overlay(RoundedRectangle(cornerRadius: 26, style: .continuous)
             .strokeBorder((correct ? Theme.Color.correct : Theme.Color.accent).opacity(0.55),
                           lineWidth: 1.5))

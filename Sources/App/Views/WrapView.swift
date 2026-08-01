@@ -29,29 +29,35 @@ struct WrapView: View {
     }
 
     var body: some View {
-        Group {
-            if compact {
-                // The wrap's content length varies a lot with game state (boss
-                // text, master-quest text, etc.) — rather than trying to budget
-                // exact vertical space for every combination on the short iPhone
-                // landscape screen, scroll it. That guarantees "Back to Map" is
-                // always reachable regardless of how much text is showing.
-                ScrollView(showsIndicators: false) { content }
-            } else {
-                content
+        // WrapView sits directly in SessionView's ZStack (an in-hierarchy overlay,
+        // not a sheet/cover), which imposes no explicit height on its children —
+        // so a plain ScrollView here never actually gets bounded and just renders
+        // at its full unclipped content height, silently running off the bottom
+        // of the physical screen instead of scrolling. GeometryReader gives the
+        // real available height so the ScrollView can be explicitly capped to it
+        // and genuinely scroll, guaranteeing "Back to Map" is always reachable.
+        GeometryReader { geo in
+            Group {
+                if compact {
+                    ScrollView(showsIndicators: false) { content }
+                        .frame(maxHeight: geo.size.height)
+                } else {
+                    content
+                }
             }
-        }
-        .frame(maxWidth: 500)
-        .darkPlate()
-        .padding(compact ? 10 : Theme.Metric.pad)
-        .background {
-            if clearedThisSession {
-                ParticleBurst(kind: .confetti,
-                              colors: [Theme.Color.accent, Theme.Color.correct,
-                                       theme.primary, .white, theme.accent],
-                              origin: UnitPoint(x: 0.5, y: 0.3), count: 120)
-                    .frame(width: 900, height: 800)
+            .frame(maxWidth: 500)
+            .darkPlate()
+            .padding(compact ? 10 : Theme.Metric.pad)
+            .background {
+                if clearedThisSession {
+                    ParticleBurst(kind: .confetti,
+                                  colors: [Theme.Color.accent, Theme.Color.correct,
+                                           theme.primary, .white, theme.accent],
+                                  origin: UnitPoint(x: 0.5, y: 0.3), count: 120)
+                        .frame(width: 900, height: 800)
+                }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 

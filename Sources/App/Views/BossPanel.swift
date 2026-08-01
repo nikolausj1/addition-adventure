@@ -12,18 +12,20 @@ struct BossPanel: View {
     private var bossName: String { theme.world.bossName }
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.verticalSizeClass) private var vSize   // compact = iPhone landscape
     @State private var shakePhase: CGFloat = 0
     @State private var burst = 0
     @State private var showCrit = false
+    private var compact: Bool { vSize == .compact }
 
     private var hpFraction: Double { max(0, 1 - Double(hits) / Double(hpTotal)) }
     private var defeated: Bool { hits >= hpTotal }
 
     var body: some View {
-        VStack(spacing: 14) {
+        VStack(spacing: compact ? 8 : 14) {
             Image(theme.bossImage)
                 .resizable().scaledToFit()
-                .frame(maxHeight: 400)
+                .frame(maxHeight: compact ? 170 : 400)
                 .saturation(defeated ? 0.25 : 1)
                 .opacity(defeated ? 0.6 : 1)
                 .rotationEffect(defeated ? .degrees(7) : .zero)
@@ -40,7 +42,7 @@ struct BossPanel: View {
                 .overlay(alignment: .top) {
                     if showCrit {
                         Text("CRITICAL!")
-                            .font(Theme.Font.display(30)).tracking(2)
+                            .font(Theme.Font.display(compact ? 20 : 30)).tracking(2)
                             .foregroundStyle(LinearGradient(colors: [Color(red: 1, green: 0.9, blue: 0.4),
                                                                      Color(red: 1, green: 0.45, blue: 0.1)],
                                                             startPoint: .top, endPoint: .bottom))
@@ -52,7 +54,7 @@ struct BossPanel: View {
                 }
                 .shadow(color: .black.opacity(0.5), radius: 14, y: 8)
 
-            VStack(spacing: 12) {
+            VStack(spacing: compact ? 6 : 12) {
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
                         Capsule().fill(.black.opacity(0.45))
@@ -64,15 +66,16 @@ struct BossPanel: View {
                     }
                     .overlay(Capsule().strokeBorder(.white.opacity(0.35), lineWidth: 1.5))
                 }
-                .frame(height: 16)
+                .frame(height: compact ? 12 : 16)
                 .animation(Theme.Motion.snappy, value: hpFraction)
 
                 Text(defeated ? "\(bossName.uppercased()) DEFEATED!" : bossName.uppercased())
-                    .font(Theme.Font.label(18)).tracking(2)
+                    .font(Theme.Font.label(compact ? 13 : 18)).tracking(compact ? 1 : 2)
                     .foregroundStyle(defeated ? Theme.Color.accent : .white.opacity(0.95))
                     .shadow(color: .black.opacity(0.7), radius: 3, y: 2)
+                    .lineLimit(1).minimumScaleFactor(0.7)
             }
-            .padding(.horizontal, 26)
+            .padding(.horizontal, compact ? 12 : 26)
         }
         .animation(Theme.Motion.celebrate, value: defeated)
         .onChange(of: hits) { _, _ in

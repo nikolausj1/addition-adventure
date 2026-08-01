@@ -6,9 +6,11 @@ import SwiftData
 /// days, a dot on practiced-without-star days.
 struct StreakView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.verticalSizeClass) private var vSize   // compact = iPhone landscape
     @Query(filter: #Predicate<Profile> { $0.isActive }) private var activeProfiles: [Profile]
 
     @State private var monthAnchor = Date.now
+    private var compact: Bool { vSize == .compact }
 
     private var profile: Profile? { activeProfiles.first }
     private let cal = Calendar.current
@@ -24,27 +26,35 @@ struct StreakView: View {
     }
 
     var body: some View {
-        ZStack {
-            // Dimmed map behind the card; tap outside to dismiss.
-            Color.black.opacity(0.6)
-                .ignoresSafeArea()
-                .onTapGesture { dismiss() }
-            card
-                .frame(maxWidth: 880)
-                .padding(.vertical, 26)
+        // A plain ScrollView here isn't reliably bounded by its ancestors (the
+        // same trap as WrapView — see its comment), so it can render at its
+        // full unclipped content height instead of actually scrolling.
+        // GeometryReader supplies the real available height so the ScrollView
+        // can be explicitly capped to it and genuinely scroll.
+        GeometryReader { geo in
+            ZStack {
+                // Dimmed map behind the card; tap outside to dismiss.
+                Color.black.opacity(0.6)
+                    .ignoresSafeArea()
+                    .onTapGesture { dismiss() }
+                card(maxHeight: geo.size.height - (compact ? 20 : 52))
+                    .frame(maxWidth: 880)
+                    .padding(.vertical, compact ? 10 : 26)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .presentationBackground(.clear)
     }
 
-    private var card: some View {
-        VStack(spacing: 16) {
-            hero
-            calendar
-                .frame(maxHeight: .infinity)
-            Text("One rest day never breaks your streak.")
-                .font(Theme.Font.label(13)).foregroundStyle(.white.opacity(0.55))
+    private func card(maxHeight: CGFloat) -> some View {
+        Group {
+            if compact {
+                ScrollView(showsIndicators: false) { cardContent }
+                    .frame(maxHeight: maxHeight)
+            } else {
+                cardContent
+            }
         }
-        .padding(Theme.Metric.pad)
         .overlay(alignment: .topLeading) { ModalCloseButton { dismiss() }.padding(14) }
         .background(Self.sheetBG, in: RoundedRectangle(cornerRadius: 30, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 30, style: .continuous)
@@ -52,66 +62,90 @@ struct StreakView: View {
         .shadow(color: .black.opacity(0.5), radius: 30, y: 10)
     }
 
+    private var cardContent: some View {
+        VStack(spacing: compact ? 8 : 16) {
+            hero
+            calendar
+                .frame(maxHeight: compact ? nil : .infinity)
+            Text("One rest day never breaks your streak.")
+                .font(Theme.Font.label(compact ? 11 : 13)).foregroundStyle(.white.opacity(0.55))
+        }
+        .padding(compact ? 14 : Theme.Metric.pad)
+    }
+
     private var hero: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 14) {
+        VStack(spacing: compact ? 4 : 8) {
+            HStack(spacing: compact ? 8 : 14) {
                 Image(systemName: "flame.fill")
-                    .font(.system(size: 66))
+                    .font(.system(size: compact ? 32 : 66))
                     .foregroundStyle(LinearGradient(colors: [Theme.Color.accent,
                                                              Color(red: 0.95, green: 0.35, blue: 0.1)],
                                                     startPoint: .top, endPoint: .bottom))
-                    .shadow(color: Theme.Color.accent.opacity(0.6), radius: 16)
+                    .shadow(color: Theme.Color.accent.opacity(0.6), radius: compact ? 8 : 16)
                 Text("\(profile?.streakDays ?? 0)")
-                    .font(Theme.Font.display(66)).foregroundStyle(.white)
+                    .font(Theme.Font.display(compact ? 32 : 66)).foregroundStyle(.white)
             }
             Text("DAY STREAK")
-                .font(Theme.Font.label(24)).tracking(4)
+                .font(Theme.Font.label(compact ? 14 : 24)).tracking(compact ? 2 : 4)
                 .foregroundStyle(.white.opacity(0.8))
         }
     }
 
     private var calendar: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: compact ? 8 : 12) {
             HStack {
                 Button { shiftMonth(-1) } label: {
                     Image(systemName: "chevron.left.circle.fill")
-                        .font(.system(size: 28))
+                        .font(.system(size: compact ? 20 : 28))
                         .foregroundStyle(canGoBack ? Theme.Color.accent : .white.opacity(0.15))
                 }
                 .disabled(!canGoBack)
                 Spacer()
                 Text(monthTitle)
-                    .font(Theme.Font.display(22)).foregroundStyle(.white)
+                    .font(Theme.Font.display(compact ? 15 : 22)).foregroundStyle(.white)
                 Spacer()
                 Button { shiftMonth(1) } label: {
                     Image(systemName: "chevron.right.circle.fill")
-                        .font(.system(size: 28))
+                        .font(.system(size: compact ? 20 : 28))
                         .foregroundStyle(canGoForward ? Theme.Color.accent : .white.opacity(0.15))
                 }
                 .disabled(!canGoForward)
             }
             let symbols = cal.veryShortWeekdaySymbols
-            HStack(spacing: 9) {
+            HStack(spacing: compact ? 6 : 9) {
                 ForEach(0..<7, id: \.self) { i in
                     Text(symbols[(i + cal.firstWeekday - 1) % 7])
-                        .font(Theme.Font.label(13)).foregroundStyle(.white.opacity(0.5))
+                        .font(Theme.Font.label(compact ? 10 : 13)).foregroundStyle(.white.opacity(0.5))
                         .frame(maxWidth: .infinity)
                 }
             }
-            // The grid stretches to fill whatever height the card gives it.
-            GeometryReader { geo in
-                let cells = monthCells
-                let rows = max(1, Int(ceil(Double(cells.count) / 7)))
-                let tileH = max(56, (geo.size.height - CGFloat(rows - 1) * 9) / CGFloat(rows))
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 9), count: 7),
-                          spacing: 9) {
-                    ForEach(Array(cells.enumerated()), id: \.offset) { _, day in
-                        dayTile(day, height: tileH)
+            if compact {
+                // A GeometryReader inside a vertically-scrolling ScrollView has
+                // ambiguous height negotiation (each asks the other "how tall?").
+                // Skip it: a small fixed tile height that just scrolls with the
+                // rest of the card is simpler and avoids that trap entirely.
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 7),
+                          spacing: 6) {
+                    ForEach(Array(monthCells.enumerated()), id: \.offset) { _, day in
+                        dayTile(day, height: 40)
+                    }
+                }
+            } else {
+                // The grid stretches to fill whatever height the card gives it.
+                GeometryReader { geo in
+                    let cells = monthCells
+                    let rows = max(1, Int(ceil(Double(cells.count) / 7)))
+                    let tileH = max(56, (geo.size.height - CGFloat(rows - 1) * 9) / CGFloat(rows))
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 9), count: 7),
+                              spacing: 9) {
+                        ForEach(Array(cells.enumerated()), id: \.offset) { _, day in
+                            dayTile(day, height: tileH)
+                        }
                     }
                 }
             }
         }
-        .padding(16)
+        .padding(compact ? 10 : 16)
         .background(Color.white.opacity(0.05),
                     in: RoundedRectangle(cornerRadius: Theme.Metric.corner))
     }
@@ -125,20 +159,20 @@ struct StreakView: View {
             let future = key > cal.startOfDay(for: .now)
             let star = starDays.contains(key)
             let practiced = practiceDays.contains(key)
-            VStack(spacing: 3) {
+            VStack(spacing: compact ? 1 : 3) {
                 Text("\(cal.component(.day, from: day))")
-                    .font(Theme.Font.number(17))
+                    .font(Theme.Font.number(compact ? 11 : 17))
                     .foregroundStyle(star ? .white : .white.opacity(future ? 0.25 : 0.6))
                 if star {
                     Image(systemName: "flame.fill")
-                        .font(.system(size: 27))
+                        .font(.system(size: compact ? 15 : 27))
                         .foregroundStyle(.white)
                         .shadow(color: .black.opacity(0.3), radius: 2, y: 1)
                 } else if practiced {
-                    Circle().fill(Theme.Color.accent).frame(width: 11, height: 11)
-                        .padding(.vertical, 8)
+                    Circle().fill(Theme.Color.accent).frame(width: compact ? 6 : 11, height: compact ? 6 : 11)
+                        .padding(.vertical, compact ? 4 : 8)
                 } else {
-                    Color.clear.frame(height: 27)
+                    Color.clear.frame(height: compact ? 15 : 27)
                 }
             }
             .frame(maxWidth: .infinity)
