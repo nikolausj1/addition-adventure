@@ -1,4 +1,7 @@
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 
 /// The world's guardian during a boss fight: portrait, name plate, and a health
 /// bar that drops with every correct answer. The guardian flinches on each hit
@@ -8,6 +11,11 @@ struct BossPanel: View {
     let hits: Int
     let hpTotal: Int
     var lastHitCritical: Bool = false
+    /// True during a GOLDEN Guardian fight (`SessionViewModel.golden`). Grades
+    /// the boss video/still gold and adds a pulsing gold glow behind it —
+    /// entirely additive, so a regular (phase-1) fight with `golden == false`
+    /// renders exactly as before.
+    var golden: Bool = false
 
     private var bossName: String { theme.world.bossName }
 
@@ -16,19 +24,88 @@ struct BossPanel: View {
     @State private var shakePhase: CGFloat = 0
     @State private var burst = 0
     @State private var showCrit = false
+    @State private var glowBloom = false
     private var compact: Bool { vSize == .compact }
 
     private var hpFraction: Double { max(0, 1 - Double(hits) / Double(hpTotal)) }
     private var defeated: Bool { hits >= hpTotal }
 
-    var body: some View {
-        VStack(spacing: compact ? 8 : 14) {
+    // The still's own aspect ratio, so the video (which has no intrinsic size
+    // as a UIViewRepresentable) is constrained to occupy exactly the space
+    // the still would have — keeps the panel layout pixel-identical.
+    private var bossAspectRatio: CGFloat? {
+        #if canImport(UIKit)
+        guard let size = UIImage(named: theme.bossImage)?.size, size.width > 0, size.height > 0 else { return nil }
+        return size.width / size.height
+        #else
+        return nil
+        #endif
+    }
+
+    // Video plays only while the boss is alive, motion is allowed, this
+    // world actually has a video, and we could read the still's aspect
+    // ratio to constrain it. Every other case falls back to the still.
+    private var showVideo: Bool {
+        !defeated && !reduceMotion
+            && Art.videoURL(theme.bossVideo) != nil
+            && Art.videoAspect(theme.bossVideo) != nil
+    }
+
+    @ViewBuilder
+    private var bossVisual: some View {
+        if showVideo, let url = Art.videoURL(theme.bossVideo),
+           let ratio = Art.videoAspect(theme.bossVideo) {
+            // NOTE: deliberately bare. The defeat treatment below
+            // (saturation/opacity/rotation) and the drop shadow are all
+            // compositing filters, and applying any of them to this
+            // AVPlayerLayer-backed view makes SwiftUI rasterize it onto an
+            // OPAQUE backing — the alpha is lost and the boss renders in a
+            // white box. They are identity values while the boss is alive
+            // (which is the only time the video shows), so the still branch
+            // carries them instead. Don't "tidy" them back onto the outer
+            // chain.
+            LoopingVideoView(url: url, isPaused: defeated, golden: golden)
+                .aspectRatio(ratio, contentMode: .fit)
+                .transition(.opacity)
+        } else {
             Image(theme.bossImage)
                 .resizable().scaledToFit()
-                .frame(maxHeight: compact ? 170 : 400)
                 .saturation(defeated ? 0.25 : 1)
                 .opacity(defeated ? 0.6 : 1)
                 .rotationEffect(defeated ? .degrees(7) : .zero)
+                .shadow(color: .black.opacity(0.5), radius: 14, y: 8)
+                .transition(.opacity)
+        }
+    }
+
+    /// A slow, breathing radial bloom BEHIND the boss visual — pure SwiftUI,
+    /// composited underneath in the view hierarchy rather than as a filter ON
+    /// the video, so it never touches the AVPlayerLayer that would lose its
+    /// alpha (see the note in `bossVisual`). Static (no pulse) under Reduce
+    /// Motion instead of animating.
+    @ViewBuilder
+    private var goldGlow: some View {
+        if golden && !defeated {
+            GeometryReader { geo in
+                RadialGradient(colors: [Theme.Color.accent.opacity(0.85),
+                                        Theme.Color.accent.opacity(0.3),
+                                        .clear],
+                              center: .center, startRadius: 4,
+                              endRadius: min(geo.size.width, geo.size.height) * 0.72)
+                    .frame(width: geo.size.width * 1.5, height: geo.size.height * 1.5)
+                    .position(x: geo.size.width / 2, y: geo.size.height / 2)
+                    .blur(radius: 24)
+                    .opacity(reduceMotion ? 0.65 : (glowBloom ? 0.95 : 0.5))
+                    .allowsHitTesting(false)
+            }
+        }
+    }
+
+    var body: some View {
+        VStack(spacing: compact ? 8 : 14) {
+            bossVisual
+                .background(goldGlow)
+                .frame(maxHeight: compact ? 170 : 470)
                 .modifier(Shake(travel: 10, shakesPerUnit: 3,
                                 animatableData: reduceMotion ? 0 : shakePhase))
                 .overlay {
@@ -52,7 +129,7 @@ struct BossPanel: View {
                             .padding(.top, -10)
                     }
                 }
-                .shadow(color: .black.opacity(0.5), radius: 14, y: 8)
+                // (drop shadow lives on the still branch only — see bossVisual)
 
             VStack(spacing: compact ? 6 : 12) {
                 GeometryReader { geo in
@@ -78,6 +155,12 @@ struct BossPanel: View {
             .padding(.horizontal, compact ? 12 : 26)
         }
         .animation(Theme.Motion.celebrate, value: defeated)
+        .onAppear {
+            guard golden, !reduceMotion else { return }
+            withAnimation(.easeInOut(duration: 1.8).repeatForever(autoreverses: true)) {
+                glowBloom = true
+            }
+        }
         .onChange(of: hits) { _, _ in
             burst += 1
             if lastHitCritical {

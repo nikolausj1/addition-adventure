@@ -26,6 +26,9 @@ struct ParentAreaView: View {
     @State private var testWorld = 0
     @State private var testLaunch: WorldSelection?
     @State private var showCert = false
+    @State private var showBossGallery = false
+    @State private var galleryInitialWorld = 0
+    @State private var pendingBossWorld: Int?
     @State private var startOverTarget: Profile?
 
     private let avatars = AvatarCatalog.keys
@@ -54,11 +57,35 @@ struct ParentAreaView: View {
             if args.contains("-openGate") { showGate = true }
             if args.contains("-openHow") { howOpen = true }
             if args.contains("-openDev") { devUnlocked = true }
+            // Optional companion to -autostartBossGallery: open the gallery already
+            // showing a specific world. Same idiom as -starsGoal in LevelUpMathApp.
+            if let i = args.firstIndex(of: "-galleryWorld"), i + 1 < args.count, let n = Int(args[i + 1]) {
+                galleryInitialWorld = min(max(n, 0), WorldCatalog.count - 1)
+            }
+            // Deep-link straight into the boss gallery (see MapView, which sets
+            // showParent for this same flag so a single arg reaches all the way).
+            if args.contains("-autostartBossGallery") { devUnlocked = true; showBossGallery = true }
             if args.contains("-testStartOver") {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 2) { performStartOver(profiles.first(where: { $0.isActive })) }
             }
         }
         .fullScreenCover(isPresented: $showCert) { CertificateView(name: activeName) }
+        // Full screen, NOT a sheet: on iPad a sheet is a small fixed-size floating
+        // card, so the guardian ends up tiny no matter what size the gallery asks
+        // for — the whole point of this screen is judging the art at real size.
+        .fullScreenCover(isPresented: $showBossGallery, onDismiss: {
+            // Runs after the gallery has fully dismissed, so presenting testLaunch's
+            // own fullScreenCover here can't race that dismissal (a dismiss + a new
+            // presentation in the same runloop turn can silently drop the second).
+            guard let world = pendingBossWorld else { return }
+            pendingBossWorld = nil
+            testLaunch = WorldSelection(id: world, boss: true)
+        }) {
+            BossGalleryView(initialWorldIndex: galleryInitialWorld, onPlayBoss: { world in
+                pendingBossWorld = world
+                showBossGallery = false
+            })
+        }
         .fullScreenCover(item: $testLaunch) { sel in
             SessionView(worldIndex: sel.id, speedRound: sel.speed, boss: sel.boss, testFormat: sel.testFormat)
                 .environment(\.worldTheme, .forWorld(sel.id))
@@ -323,6 +350,7 @@ struct ParentAreaView: View {
                 devBtn("Speed Round", "timer") { testLaunch = WorldSelection(id: testWorld, speed: true) }
             }
             devBtn("Boss Challenge", "flag.checkered") { testLaunch = WorldSelection(id: testWorld, boss: true) }
+            devBtn("Boss Gallery", "photo.on.rectangle.angled") { showBossGallery = true }
 
             Divider().padding(.vertical, 2)
             // Pacing knob: sockets per world. Progress is stored per-world now,
