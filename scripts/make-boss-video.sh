@@ -36,7 +36,7 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
 echo "→ Measuring opaque bounding box and usable frame range"
-ffmpeg -v error -y -i "$MASTER" -vsync 0 "$TMP/%04d.png"
+ffmpeg -v error -y -i "$MASTER" -fps_mode passthrough "$TMP/%04d.png"
 
 MEASURE=$(python3 - "$TMP" <<'PY'
 import sys, glob
