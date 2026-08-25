@@ -58,7 +58,7 @@ struct ParentAreaView: View {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 2) { performStartOver(profiles.first(where: { $0.isActive })) }
             }
         }
-        .sheet(isPresented: $showCert) { CertificateView(name: activeName) }
+        .fullScreenCover(isPresented: $showCert) { CertificateView(name: activeName) }
         .fullScreenCover(item: $testLaunch) { sel in
             SessionView(worldIndex: sel.id, speedRound: sel.speed, boss: sel.boss, testFormat: sel.testFormat)
                 .environment(\.worldTheme, .forWorld(sel.id))
