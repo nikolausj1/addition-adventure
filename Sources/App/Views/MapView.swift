@@ -19,6 +19,29 @@ struct MapView: View {
     @State private var showTimesTable = false
     @State private var showCertificate = false
     @State private var showMapComplete = false
+    // Golden Guardians phase 4, beat 1: all seven guardians gilded.
+    @State private var showGuardiansAssemble = false
+
+    // Golden Guardians phase 3: the map transformation. `revealGoldenMap`
+    // gates the golden visuals independently of the persisted
+    // `mapCompleteCelebrated` flag so the transform can never be seen while
+    // the completion overlay is still up (spec acceptance 2) — it starts
+    // false and is set once, either immediately on appear (already in the
+    // golden era at launch: static, no animation) or when the overlay is
+    // dismissed for the first time (fresh transform: animated). Both are
+    // transient @State, never persisted — a later launch in the golden era
+    // just renders golden statically, per spec.
+    @State private var revealGoldenMap = false
+    @State private var playTransformAnimation = false
+    // Golden Guardians WP5: award sequencing. The map-complete takeover's
+    // dismissal used to trigger the phase-3 transform directly; now the
+    // certificate sits between them (spec acceptance 1: awarded at map
+    // completion, no mastery precondition). This flag is set only on that
+    // first-award path and consumed by the certificate cover's `onDismiss`,
+    // so the transform plays exactly once, right after the FIRST certificate
+    // viewing — never on the trophy-button re-open path (which never sets
+    // this flag) and never before/during the certificate itself (acceptance 2).
+    @State private var pendingFirstTransform = false
 
     // Locked-node tap response + the fog-lift reveal when a new world opens.
     @State private var shakeTarget: Int?
@@ -34,7 +57,19 @@ struct MapView: View {
     /// The anytime Speed Round is a parent-enabled extra; the boss challenge is
     /// the built-in timed moment.
     private var canSpeedRound: Bool { profile?.speedRoundUnlocked ?? false }
-    private var isComplete: Bool { (profile?.masteredCount ?? 0) == FactUniverse.count }
+    /// Golden Guardians phase 3: the map is beaten and the completion
+    /// celebration has played. From here every node routes straight into
+    /// that world's golden fight — no menu, no chooser (spec: "the exciting
+    /// thing should not have a chooser in front of it").
+    private var isGoldenEra: Bool {
+        clearedSet.count == WorldCatalog.count && (profile?.mapCompleteCelebrated ?? false)
+    }
+    /// Golden Guardians phase 4: every world's guardian has been gilded — the
+    /// three final beats (assemble takeover, certificate seal, map caption)
+    /// all key off this.
+    private var allGilded: Bool {
+        (profile?.gildedWorlds.count ?? 0) == WorldCatalog.count
+    }
 
     /// Fractional positions of each world node, forming a left→right winding trail,
     /// vertically centered in the space between the title banner and screen bottom.
@@ -57,12 +92,21 @@ struct MapView: View {
     var body: some View {
         ZStack {
             mapBackdrop
+            if revealGoldenMap {
+                GoldenMapTint()
+                    .transition(.opacity)
+            }
             GeometryReader { geo in
                 let scaled = nodePoints.map { CGPoint(x: $0.x * geo.size.width, y: $0.y * geo.size.height) }
                 ZStack {
                     TrailPath(points: scaled)
                         .stroke(style: StrokeStyle(lineWidth: 5, lineCap: .round, dash: [2, 14]))
-                        .foregroundStyle(.white.opacity(0.55))
+                        .foregroundStyle(revealGoldenMap
+                            ? AnyShapeStyle(LinearGradient(
+                                colors: [Color(red: 1, green: 0.86, blue: 0.5).opacity(0.8),
+                                         Color(red: 0.9, green: 0.66, blue: 0.22).opacity(0.8)],
+                                startPoint: .leading, endPoint: .trailing))
+                            : AnyShapeStyle(.white.opacity(0.55)))
                     ForEach(WorldCatalog.worlds, id: \.index) { world in
                         nodeView(world)
                             .position(scaled[world.index])
@@ -70,19 +114,17 @@ struct MapView: View {
                 }
             }
             DriftingMist().ignoresSafeArea()
-            // The endgame reveals itself only after the Star Stag falls: master
-            // every fact to claim the trophy certificate.
-            // Hidden while the map-complete takeover is up: the bar sat behind
-            // the scrim and collided with the overlay's "Tap to continue".
-            if clearedSet.count == WorldCatalog.count, !isComplete, !showMapComplete {
+            // Golden Guardians phase 4, beat 3: the quiet completion
+            // statement, permanent from the moment every guardian is gilded.
+            // Sits in the strip below the node labels/trail (the Master
+            // Quest bar that used to live here is removed entirely — WP5),
+            // so it never collides with the nodes or their labels on either
+            // form factor. No digits, no CTA — it simply exists.
+            if isGoldenEra, allGilded, revealGoldenMap, !showMapComplete, !showGuardiansAssemble {
                 if compact {
-                    // iPhone landscape has no clear band left: the wide banner
-                    // owns the top 175pt and the node labels own the bottom.
-                    // Use the ~35pt strip below the labels with a single-row
-                    // variant rather than the two-row plate.
-                    VStack { Spacer(); masterQuestBarSlim }
+                    VStack { Spacer(); goldenCompletionCaptionSlim }
                 } else {
-                    VStack { Spacer(); masterQuestBar }
+                    VStack { Spacer(); goldenCompletionCaption }
                 }
             }
             // Full-bleed title banner: painted sky fades into the map's fog.
@@ -126,6 +168,16 @@ struct MapView: View {
         .overlay {
             if let sel = sessionWorld {
                 SessionView(worldIndex: sel.id, speedRound: sel.speed, boss: sel.boss,
+                            golden: sel.golden, training: sel.training,
+                            onTrain: { w in
+                    // Close the current (golden) overlay, then reopen a
+                    // training session on the same world once it's out of
+                    // the way — "after the current overlay closes" (spec).
+                    withAnimation(.easeOut(duration: 0.25)) { sessionWorld = nil }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        sessionWorld = WorldSelection(id: w, training: true)
+                    }
+                },
                             onClose: {
                     withAnimation(.easeOut(duration: 0.25)) { sessionWorld = nil }
                     checkUnlockReveal()
@@ -151,6 +203,40 @@ struct MapView: View {
             if showMapComplete {
                 MapCompleteOverlay {
                     withAnimation(.easeOut(duration: 0.4)) { showMapComplete = false }
+                    // Golden Guardians WP5 (spec acceptance 1): the map-
+                    // complete takeover awards the certificate immediately —
+                    // no mastery precondition. `-demoMapComplete` can show
+                    // this overlay directly (skipping checkUnlockReveal), so
+                    // mapCompleteCelebrated is set here too, guarded so the
+                    // real gameplay path (already set before the overlay
+                    // appeared) is a no-op.
+                    if let p = profile, clearedSet.count == WorldCatalog.count, !p.mapCompleteCelebrated {
+                        p.mapCompleteCelebrated = true
+                        try? context.save()
+                    }
+                    // The phase-3 transform no longer runs here. It moves
+                    // behind the certificate (spec acceptance 2: the golden
+                    // map is revealed only after the completion celebration
+                    // — which now includes the certificate — is dismissed).
+                    // This flag is consumed by the certificate cover's
+                    // onDismiss below, once, the first time this path fires.
+                    if isGoldenEra, !revealGoldenMap {
+                        pendingFirstTransform = true
+                    }
+                    showCertificate = true
+                }
+                .transition(.opacity)
+            }
+        }
+        .overlay {
+            if showGuardiansAssemble {
+                GuardiansAssembleOverlay {
+                    withAnimation(.easeOut(duration: 0.4)) { showGuardiansAssemble = false }
+                    // Golden Guardians phase 4, beat 2: the certificate gains
+                    // its gold seal. Same fullScreenCover the trophy button
+                    // uses — CertificateView derives goldSeal from the
+                    // profile itself, so presenting it here just works.
+                    showCertificate = true
                 }
                 .transition(.opacity)
             }
@@ -163,11 +249,40 @@ struct MapView: View {
         // card and pinned it to the system form-sheet size on iPad. No text
         // input here, so the keyboard-inset caveat that rules out covers for
         // sessions does not apply.
-        .fullScreenCover(isPresented: $showCertificate) {
-            CertificateView(name: profile?.name ?? "Champion")
+        .fullScreenCover(isPresented: $showCertificate, onDismiss: {
+            // Golden Guardians WP5: the phase-3 map transform runs here, once
+            // the certificate that was awarded on map completion is
+            // dismissed — never before or during it (spec acceptance 2).
+            // `pendingFirstTransform` is only ever set on that first award
+            // path (see the map-complete overlay above), so the trophy-
+            // button reopen and the phase-4 gold-seal reopen never replay it.
+            guard pendingFirstTransform else { return }
+            pendingFirstTransform = false
+            if isGoldenEra, !revealGoldenMap {
+                playTransformAnimation = true
+                withAnimation(.easeIn(duration: 1.3)) { revealGoldenMap = true }
+            }
+        }) {
+            // Golden Guardians phase 4, beat 2: once every world is gilded,
+            // the certificate the child already owns gains a gold seal —
+            // upgrading something he possesses rather than granting a new
+            // thing. Derived from profile state so every path that opens the
+            // certificate (trophy button, the assemble overlay dismissing,
+            // -autostartCertificate) reflects it automatically.
+            CertificateView(name: profile?.name ?? "Champion", goldSeal: allGilded)
         }
         .onAppear {
             baselineCurrent = currentIndex
+            // Already in the golden era at launch (a later session, or
+            // -demoGoldenEra): render golden immediately with no animation —
+            // the transform only ever plays once, right after the map-
+            // complete overlay is freshly dismissed (see that overlay below).
+            if isGoldenEra { revealGoldenMap = true }
+            // Recovery path (see checkGuardiansAssemble's doc comment): covers
+            // both a relaunch between the seventh gild and the celebration,
+            // and `-demoGoldenEra -gildWorlds 127` showing the takeover
+            // straight from launch.
+            checkGuardiansAssemble()
             let args = ProcessInfo.processInfo.arguments
             if args.contains("-autostartSession") { sessionWorld = WorldSelection(id: currentIndex) }
             // Repro for the clipped-pad bug: open the profile name editor
@@ -190,6 +305,13 @@ struct MapView: View {
             if args.contains("-autostartCertificate") { showCertificate = true }
             if args.contains("-autostartSpeed") { sessionWorld = WorldSelection(id: currentIndex, speed: true) }
             if args.contains("-autostartBoss") { sessionWorld = WorldSelection(id: currentIndex, boss: true) }
+            if args.contains("-autostartGolden") {
+                var w = currentIndex
+                if let i = args.firstIndex(of: "-goldenWorld"), i + 1 < args.count, let n = Int(args[i + 1]) {
+                    w = n
+                }
+                sessionWorld = WorldSelection(id: w, golden: true)
+            }
             // Demo: play the fog-lift reveal on the current node (pair with -demoProgress).
             if args.contains("-demoReveal") { revealWorld = currentIndex }
         }
@@ -254,7 +376,10 @@ struct MapView: View {
                 }
                 Spacer()
             }
-            if isComplete {
+            // Golden Guardians WP5 (spec acceptance 1): the trophy button
+            // gates on MAP CONQUEST, not mastery — beating the map awards
+            // the certificate immediately, with no fact-mastery precondition.
+            if clearedSet.count == WorldCatalog.count {
                 Button { showCertificate = true } label: {
                     Image(systemName: "trophy.fill").font(.system(size: 19))
                         .foregroundStyle(Theme.Color.accent)
@@ -321,14 +446,22 @@ struct MapView: View {
         // All sockets filled but boss unbeaten → the node IS the boss fight.
         let bossReady = isCurrent && !cleared && starsHere == goal
         let badgeD: CGFloat = compact ? 82 : 104
+        // Golden Guardians phase 3: only true once the transform is allowed
+        // to be visible (never before/during the map-complete overlay).
+        let golden = isGoldenEra && revealGoldenMap
         VStack(spacing: 5) {
             Button {
-                if bossReady { sessionWorld = WorldSelection(id: world.index, boss: true) }
+                if isGoldenEra { sessionWorld = WorldSelection(id: world.index, golden: true) }
+                else if bossReady { sessionWorld = WorldSelection(id: world.index, boss: true) }
                 else if unlocked { sessionWorld = WorldSelection(id: world.index) }
                 else { nudgeLocked(world.index) }
             } label: {
                 ZStack {
-                    if unlocked {
+                    if golden {
+                        GuardianBadge(index: world.index,
+                                      gilded: profile?.isGilded(world.index) ?? false,
+                                      diameter: badgeD, animate: playTransformAnimation)
+                    } else if unlocked {
                         if world.index == revealWorld {
                             UnlockRevealNode(index: world.index, diameter: badgeD) { revealWorld = nil }
                         } else {
@@ -337,8 +470,16 @@ struct MapView: View {
                     } else {
                         LockedNodeView(diameter: badgeD)
                     }
-                    if isCurrent { PulsingRing(diameter: badgeD * 1.19) }
-                    if cleared {
+                    // The pulsing "current world" ring is meaningless once the
+                    // map is golden (every world is long since cleared), so
+                    // it's suppressed here rather than parking forever on
+                    // whichever world happened to be last.
+                    if isCurrent, !golden { PulsingRing(diameter: badgeD * 1.19) }
+                    // The green cleared-seal is the OLD map's language; on the
+                    // golden map the guardian itself is the progress signal
+                    // (un-gold = challenge waiting, gold = conquered), so the
+                    // seal would only dilute "countable at a glance".
+                    if cleared, !golden {
                         Image(systemName: "checkmark.seal.fill").font(.system(size: compact ? 21 : 26))
                             .foregroundStyle(Theme.Color.correct)
                             .background(Circle().fill(.white).frame(width: compact ? 19 : 24, height: compact ? 19 : 24))
@@ -349,7 +490,15 @@ struct MapView: View {
             .buttonStyle(PopButtonStyle())
             .modifier(Shake(animatableData: world.index == shakeTarget ? shakePhase : 0))
 
-            if unlocked {
+            if golden {
+                // Golden Guardians phase 3: the world's tables are true labels
+                // only from here on (post-transform practice is world-scoped —
+                // see docs/golden-guardians-spec.md Phase 3). A compact
+                // two-line stack keeps this the same footprint as the star
+                // row + name capsule it replaces, so it still fits both the
+                // iPad layout and the tight iPhone-landscape trail.
+                goldenLabel(world)
+            } else if unlocked {
                 // Star sockets — one star per completed quest; cleared worlds
                 // always wear the full set.
                 WorldStars(filled: starsHere, total: goal, size: compact ? 15 : 19, spacing: 4)
@@ -396,72 +545,67 @@ struct MapView: View {
         .animation(Theme.Motion.snappy, value: hintNode)
     }
 
-    private var masterQuestBar: some View {
-        let mastered = profile?.masteredCount ?? 0
-        let total = FactUniverse.count
-        return HStack(spacing: 12) {
-            Image(systemName: "trophy.fill").font(.system(size: 22))
-                .foregroundStyle(Theme.Color.accent)
-            VStack(alignment: .leading, spacing: 5) {
-                HStack {
-                    Text("MASTER QUEST").font(Theme.Font.label(13)).tracking(2)
-                        .foregroundStyle(.white)
-                    Spacer()
-                    Text("\(mastered)/\(total)").font(Theme.Font.number(15))
-                        .foregroundStyle(Theme.Color.accent)
-                        .contentTransition(.numericText(value: Double(mastered)))
-                }
-                GeometryReader { geo in
-                    ZStack(alignment: .leading) {
-                        Capsule().fill(.black.opacity(0.4))
-                        Capsule()
-                            .fill(LinearGradient(colors: [Color(red: 1, green: 0.84, blue: 0.35),
-                                                          Color(red: 0.95, green: 0.6, blue: 0.1)],
-                                                 startPoint: .top, endPoint: .bottom))
-                            .frame(width: geo.size.width * CGFloat(mastered) / CGFloat(total))
-                        Capsule().strokeBorder(.white.opacity(0.3), lineWidth: 1)
-                    }
-                }
-                .frame(height: 10)
-            }
+    /// Golden Guardians phase 3 node caption: world name over the tables it
+    /// owns ("Aurora Summit" / "the +12s"). Table names only, never a fact
+    /// count or fraction (spec: no child-facing numbers on the map).
+    @ViewBuilder
+    private func goldenLabel(_ world: World) -> some View {
+        VStack(spacing: 1) {
+            Text(world.name)
+                .font(Theme.Font.label(compact ? 11 : 13)).foregroundStyle(.white)
+                .lineLimit(1).minimumScaleFactor(0.7)
+            Text(Self.tableLabel(WorldCatalog.tables(inWorld: world.index)))
+                .font(Theme.Font.label(compact ? 9 : 11)).foregroundStyle(Color(red: 1, green: 0.86, blue: 0.55))
+                .lineLimit(1).minimumScaleFactor(0.6)
         }
-        .padding(.horizontal, 18).padding(.vertical, 12)
-        .frame(maxWidth: compact ? 380 : 500)
-        .darkPlate()
-        .padding(.bottom, compact ? 0 : 16)
-        .accessibilityLabel("Master Quest: \(mastered) of \(total) facts mastered")
+        .padding(.horizontal, 10).padding(.vertical, compact ? 3 : 4)
+        .background(Capsule().fill(.black.opacity(0.55)))
     }
 
-    /// iPhone-landscape Master Quest readout: one row, short enough to live in
-    /// the strip under the node labels. (Slated for removal with the Golden
-    /// Guardians work, which replaces this counter with the map itself.)
-    private var masterQuestBarSlim: some View {
-        let mastered = profile?.masteredCount ?? 0
-        let total = FactUniverse.count
-        return HStack(spacing: 9) {
-            Image(systemName: "trophy.fill").font(.system(size: 13))
-                .foregroundStyle(Theme.Color.accent)
-            Text("MASTER QUEST").font(Theme.Font.label(10)).tracking(1.5)
-                .foregroundStyle(.white.opacity(0.9))
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    Capsule().fill(.black.opacity(0.45))
-                    Capsule()
-                        .fill(LinearGradient(colors: [Color(red: 1, green: 0.84, blue: 0.35),
-                                                      Color(red: 0.95, green: 0.6, blue: 0.1)],
-                                             startPoint: .top, endPoint: .bottom))
-                        .frame(width: geo.size.width * CGFloat(mastered) / CGFloat(total))
-                }
-            }
-            .frame(width: 110, height: 7)
-            Text("\(mastered)/\(total)").font(Theme.Font.number(12))
-                .foregroundStyle(Theme.Color.accent)
-                .contentTransition(.numericText(value: Double(mastered)))
+    /// "the +8s" / "the +3s & +4s" / "the +0s, +1s, +2s, +10s & +5s" — the
+    /// tables a world owns, in curriculum order, joined the way the spec's
+    /// examples read.
+    private static func tableLabel(_ tables: [Int]) -> String {
+        let parts = tables.map { "+\($0)s" }
+        switch parts.count {
+        case 0: return ""
+        case 1: return "the \(parts[0])"
+        case 2: return "the \(parts[0]) & \(parts[1])"
+        default: return "the \(parts.dropLast().joined(separator: ", ")) & \(parts.last!)"
+        }
+    }
+
+    /// Golden Guardians phase 4, beat 3: iPad/landscape-regular reading of the
+    /// quiet completion caption (see the `isGoldenEra`/`allGilded` guard above).
+    private var goldenCompletionCaption: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "sparkles").font(.system(size: 16))
+                .foregroundStyle(Color(red: 1, green: 0.86, blue: 0.55))
+            Text("Seven Worlds conquered · Adventure complete")
+                .font(Theme.Font.label(14)).tracking(1)
+                .foregroundStyle(Color(red: 1, green: 0.86, blue: 0.55))
+        }
+        .padding(.horizontal, 18).padding(.vertical, 10)
+        .darkPlate()
+        .padding(.bottom, 16)
+        .accessibilityLabel("Seven Worlds conquered. Adventure complete.")
+    }
+
+    /// iPhone-landscape reading: the ~35pt strip below the node labels,
+    /// single-row and compact to match the map's other iPhone chrome.
+    private var goldenCompletionCaptionSlim: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "sparkles").font(.system(size: 12))
+                .foregroundStyle(Color(red: 1, green: 0.86, blue: 0.55))
+            Text("Seven Worlds conquered · Adventure complete")
+                .font(Theme.Font.label(10)).tracking(0.5)
+                .foregroundStyle(Color(red: 1, green: 0.86, blue: 0.55))
+                .lineLimit(1).minimumScaleFactor(0.7)
         }
         .padding(.horizontal, 12).padding(.vertical, 6)
         .darkPlate(corner: 16)
         .padding(.bottom, 3)
-        .accessibilityLabel("Master Quest: \(mastered) of \(total) facts mastered")
+        .accessibilityLabel("Seven Worlds conquered. Adventure complete.")
     }
 
     /// A tap on a fogged node shouldn't feel broken: wiggle it and say what unlocks it.
@@ -492,6 +636,28 @@ struct MapView: View {
             revealWorld = now
         }
         baselineCurrent = now
+        // Golden Guardians phase 4, beat 1: the seventh gild can only happen
+        // inside a golden fight, so this is the real trigger path — the fight
+        // just ended, the session overlay is already closing (sessionWorld is
+        // nil by the time onClose calls this), and clearedSet/mapComplete are
+        // already settled from the branch above.
+        checkGuardiansAssemble()
+    }
+
+    /// Fires the one-time "guardians assemble" takeover the moment every
+    /// world is gilded. Called from the real gameplay path
+    /// (`checkUnlockReveal`, right after a golden fight closes) and from
+    /// `.onAppear` as a recovery path — the app can be relaunched between the
+    /// seventh gild and the celebration (or launched straight into it via
+    /// `-demoGoldenEra -gildWorlds 127`, since `-gildWorlds` only sets the
+    /// mask and never the celebrated flag). Guarded so it can never fire
+    /// while the map-complete takeover is up or a session is open.
+    private func checkGuardiansAssemble() {
+        guard let p = profile, isGoldenEra, allGilded, !p.guardiansAssembleCelebrated,
+              !showMapComplete, sessionWorld == nil else { return }
+        p.guardiansAssembleCelebrated = true
+        try? context.save()
+        withAnimation(.easeOut(duration: 0.3)) { showGuardiansAssemble = true }
     }
 }
 
@@ -504,6 +670,57 @@ private struct UnlockedBadge: View {
             .frame(width: diameter, height: diameter).clipShape(Circle())
             .overlay(Circle().strokeBorder(.white.opacity(0.9), lineWidth: diameter > 95 ? 4 : 3))
             .shadow(color: .black.opacity(0.4), radius: 7, y: 3)
+    }
+}
+
+/// Golden Guardians phase 3 map node. Wraps `GuardianNodeBadge` (the still
+/// guardian art in its dark-challenger or full-gold treatment) and, when
+/// `animate` is true, plays the one-time transform: a 3D flip/crossfade from
+/// the ordinary world badge to the guardian, staggered per node so the
+/// worlds don't all turn at once. `animate` is false on every launch except
+/// the moment right after the map-complete overlay is first dismissed (see
+/// MapView's showMapComplete handling), so a later launch in the golden era
+/// just renders the guardian directly with no flip.
+private struct GuardianBadge: View {
+    let index: Int
+    let gilded: Bool
+    var diameter: CGFloat = 104
+    var animate: Bool = false
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var revealed = false
+
+    var body: some View {
+        ZStack {
+            UnlockedBadge(index: index, diameter: diameter)
+                .opacity(revealed ? 0 : 1)
+                .rotation3DEffect(.degrees(revealed ? 90 : 0), axis: (x: 0, y: 1, z: 0))
+            GuardianNodeBadge(theme: .forWorld(index), gilded: gilded, diameter: diameter)
+                .opacity(revealed ? 1 : 0)
+                .rotation3DEffect(.degrees(revealed ? 0 : -90), axis: (x: 0, y: 1, z: 0))
+        }
+        .onAppear {
+            guard animate, !reduceMotion else { revealed = true; return }
+            let stagger = Double(index) * 0.12
+            withAnimation(.spring(response: 0.6, dampingFraction: 0.68).delay(0.25 + stagger)) {
+                revealed = true
+            }
+        }
+    }
+}
+
+/// The golden era's "same map at golden hour" atmosphere: a low-opacity warm
+/// gradient scrim over the whole map. Tasteful on purpose — this sits well
+/// under the node art and trail, not a yellow filter over everything.
+private struct GoldenMapTint: View {
+    var body: some View {
+        LinearGradient(colors: [Color(red: 1, green: 0.78, blue: 0.35).opacity(0.20),
+                                Color(red: 0.85, green: 0.55, blue: 0.15).opacity(0.10),
+                                .clear],
+                       startPoint: .top, endPoint: .bottom)
+            .blendMode(.overlay)
+            .allowsHitTesting(false)
+            .ignoresSafeArea()
     }
 }
 
@@ -599,5 +816,10 @@ struct WorldSelection: Identifiable {
     let id: Int
     var speed: Bool = false
     var boss: Bool = false
+    /// A Golden Guardian fight (Golden Guardians, phase 3) — entered directly,
+    /// no menu, once the profile is in the golden era.
+    var golden: Bool = false
+    /// "Train the +Ns first" — offered when a golden fight is lost.
+    var training: Bool = false
     var testFormat: MasteryStage? = nil
 }

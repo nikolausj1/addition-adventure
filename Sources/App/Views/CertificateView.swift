@@ -1,14 +1,21 @@
 import SwiftUI
 import SwiftData
 
-/// The completion certificate (§10): shown when every fact is mastered. Renders to
-/// an image that can be shared or printed via the system share sheet. Personalized
-/// with the child's avatar, real stats, and the seven conquered worlds.
+/// The completion certificate (§10): shown when the map is beaten — all Seven
+/// Worlds conquered (Golden Guardians WP5: awarded at map completion, no
+/// mastery precondition). Renders to an image that can be shared or printed
+/// via the system share sheet. Personalized with the child's avatar, real
+/// stats, and the seven conquered worlds.
 struct CertificateView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.verticalSizeClass) private var vSize   // compact = iPhone landscape
     @Query(filter: #Predicate<Profile> { $0.isActive }) private var activeProfiles: [Profile]
     let name: String
+    /// Golden Guardians phase 4, beat 2: true once every world is gilded.
+    /// Renders a gold seal on the card — the certificate he already owns
+    /// gaining a mark of the deeper accomplishment, not a second certificate.
+    /// Callers derive this from the profile (`gildedWorlds.count == WorldCatalog.count`).
+    var goldSeal: Bool = false
     private var compact: Bool { vSize == .compact }
 
     @State private var rendered: Image?
@@ -62,7 +69,7 @@ struct CertificateView: View {
         return HStack(spacing: 14) {
             if let rendered {
                 ShareLink(item: rendered,
-                          preview: SharePreview("Certificate of Mastery", image: rendered)) {
+                          preview: SharePreview("Certificate of Victory", image: rendered)) {
                     Label("Share / Print", systemImage: "square.and.arrow.up")
                         .font(font)
                         .foregroundStyle(Color(hex: "#3A2708"))
@@ -127,7 +134,7 @@ struct CertificateView: View {
                         .shadow(color: Self.gold.opacity(0.5), radius: 8, y: 3)
                         .padding(.bottom, 2)
                 }
-                Text("CERTIFICATE OF MASTERY")
+                Text("CERTIFICATE OF VICTORY")
                     .font(Theme.Font.label(22)).tracking(5)
                     .foregroundStyle(Self.paperInk)
                 Text("This certifies that")
@@ -145,7 +152,7 @@ struct CertificateView: View {
                     .shadow(color: Self.gold.opacity(0.5), radius: 6, y: 2)
                     .lineLimit(1).minimumScaleFactor(0.6)
 
-                Text("has mastered all \(FactUniverse.count) addition facts —\nsums from 0+0 to \(FactUniverse.maxFactor)+\(FactUniverse.maxFactor) — and conquered the Seven Worlds.")
+                Text("has conquered all Seven Worlds of the\nAddition Adventure — sums from 0+0 to \(FactUniverse.maxFactor)+\(FactUniverse.maxFactor) — and defeated every Guardian.")
                     .multilineTextAlignment(.center)
                     .font(Theme.Font.body(16))
                     .foregroundStyle(Self.paperInk)
@@ -164,7 +171,60 @@ struct CertificateView: View {
             .padding(.horizontal, 90)
             .padding(.top, Art.exists("certificate_bg") ? 132 : 40)
             .padding(.bottom, 30)
+
+            // Golden Guardians phase 4, beat 2: the gold seal. Lower corner,
+            // mirroring where `certificate_bg`'s own baked-in wax seal sits
+            // in the OPPOSITE (bottom-right) corner — that placement is
+            // already proven clear of the centered text column above, so its
+            // mirror image on the left is too. Lives inside this `certificate`
+            // view (not layered on top by a caller) so the ImageRenderer
+            // share path picks it up automatically.
+            if goldSeal {
+                goldSealBadge
+                    .position(x: 116, y: 404)
+            }
         }
+    }
+
+    /// Layered gold circles + star + a tiny ribbon caption — the whole
+    /// element is drawn (no new art), matching the certificate's engraved-
+    /// gold language rather than pasting on a generic badge.
+    private var goldSealBadge: some View {
+        ZStack {
+            Circle()
+                .fill(RadialGradient(colors: [Color(hex: "#F7E3A6"), Self.gold, Self.goldDeep],
+                                     center: .center, startRadius: 2, endRadius: 48))
+            Circle().strokeBorder(Color(hex: "#FFF6DC"), lineWidth: 2).padding(3)
+            Circle().strokeBorder(Self.goldDeep.opacity(0.65), lineWidth: 1).padding(8)
+            VStack(spacing: 2) {
+                Image(systemName: "star.fill")
+                    .font(.system(size: 20)).foregroundStyle(.white)
+                    .shadow(color: .black.opacity(0.25), radius: 1, y: 1)
+                Text("SEVEN WORLDS")
+                    .font(Theme.Font.label(7)).tracking(0.8)
+                    .foregroundStyle(.white.opacity(0.95))
+                Text("GOLDEN GUARDIAN")
+                    .font(Theme.Font.label(6)).tracking(0.4)
+                    .foregroundStyle(.white.opacity(0.85))
+            }
+        }
+        .frame(width: 92, height: 92)
+        .rotationEffect(.degrees(-9))
+        .shadow(color: .black.opacity(0.4), radius: 6, y: 3)
+        .overlay(
+            // Two small ribbon tails beneath the medallion, echoing the art's
+            // own wax-seal-and-ribbon motif on the opposite corner.
+            HStack(spacing: 26) {
+                RoundedRectangle(cornerRadius: 2).fill(Self.goldDeep)
+                    .frame(width: 11, height: 24)
+                    .rotationEffect(.degrees(14))
+                RoundedRectangle(cornerRadius: 2).fill(Self.goldDeep)
+                    .frame(width: 11, height: 24)
+                    .rotationEffect(.degrees(-14))
+            }
+            .offset(y: 42),
+            alignment: .center
+        )
     }
 
     private func statBadge(_ icon: String, _ text: String) -> some View {
