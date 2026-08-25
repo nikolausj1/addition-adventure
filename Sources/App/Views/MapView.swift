@@ -33,6 +33,28 @@ struct MapView: View {
     // just renders golden statically, per spec.
     @State private var revealGoldenMap = false
     @State private var playTransformAnimation = false
+    // Visual redesign: two quick lightning-flash pulses that open the reveal
+    // sequence (flash -> B&W -> guardians slam in), before `revealGoldenMap`
+    // flips. A plain @State opacity driven by a short withAnimation chain —
+    // see `runRevealFlashes()`.
+    @State private var flashOpacity: Double = 0
+    // Visual redesign v2 ("amp the storm"): a second, independent white layer
+    // for the brief per-guardian slam flicker (see `flickerSlam()`), kept
+    // separate from `flashOpacity` so a slam landing mid-strike doesn't
+    // retarget the main strike's animation curve.
+    @State private var slamFlashOpacity: Double = 0
+    // Visual redesign v2: a cheap low-amplitude screen shake riding the
+    // double-strike beat, reusing the existing `Shake` GeometryEffect (see
+    // `nudgeLocked`) at a smaller travel than the locked-node nudge.
+    @State private var stormShakePhase: CGFloat = 0
+    // Visual redesign: true once the finale color flood has played (or, on a
+    // later launch, once `Profile.guardiansColorFloodPlayed` says it already
+    // has). Gates the B&W scene (`sceneIsBW`) and the return of
+    // `GoldenMapTint`. Kept separate from `revealGoldenMap` because the
+    // golden era has two visually distinct sub-phases: B&W-with-gold-nodes
+    // (pre-finale) and fully colored (post-finale) — see docs/golden-
+    // guardians-spec.md's redesign addendum.
+    @State private var sceneColorRestored = false
     // Golden Guardians WP5: award sequencing. The map-complete takeover's
     // dismissal used to trigger the phase-3 transform directly; now the
     // certificate sits between them (spec acceptance 1: awarded at map
@@ -49,6 +71,26 @@ struct MapView: View {
     @State private var hintNode: Int?
     @State private var revealWorld: Int?
     @State private var baselineCurrent = 0
+
+    // Feathered color pools (Golden Guardians refinement): the world index
+    // whose pool should BLOOM (grow from ~0) because its golden fight was
+    // just won and the map just returned — set right before tearing down a
+    // freshly-conquered golden session, consumed once by that node's
+    // `ConqueredPool.onAppear`. Every other conquered node (already gilded
+    // before this map appeared, or on a later launch) renders its pool at
+    // full size immediately, no animation. Not persisted — a fresh
+    // `MapView` instance (relaunch) starts nil, so nothing replays.
+    @State private var justConqueredWorld: Int?
+    // Snapshot of `gildedWorldsMask` taken the instant a golden fight is
+    // entered, so the session's `onClose` can tell whether THIS fight is
+    // the one that just gilded the world (vs. a re-fight of an
+    // already-conquered one, which shouldn't replay the bloom).
+    @State private var goldenFightBaselineMask: Int = 0
+
+    // Guidance text (refinement): the one-time "win it back" line that fades
+    // in once the reveal storm settles, and the strip caption's pre-finale
+    // wording. Both plain opacity/state, never persisted.
+    @State private var guidanceOpacity: Double = 0
 
     private var profile: Profile? { activeProfiles.first }
     private var snapshots: [FactSnapshot] { (profile?.facts ?? []).map(\.snapshot) }
@@ -69,6 +111,21 @@ struct MapView: View {
     /// all key off this.
     private var allGilded: Bool {
         (profile?.gildedWorlds.count ?? 0) == WorldCatalog.count
+    }
+    /// Visual redesign: the whole scene (backdrop + banner) desaturates for
+    /// the golden era's pre-finale stretch — gold nodes/trail/labels are the
+    /// only color on screen, "the guardians drained this world's color."
+    /// Once the finale flood plays (or has already played on a prior
+    /// launch), the scene is fully colored again.
+    private var sceneIsBW: Bool { revealGoldenMap && !sceneColorRestored }
+    /// Feathered color pools (Golden Guardians refinement): every world
+    /// whose guardian is gilded gets a soft color pool around its map node
+    /// (see `backdropLayer`/`ConqueredPool`). Pools only ever render while
+    /// `sceneIsBW` — the finale floods the whole scene via the existing
+    /// saturation crossfade, at which point this list is moot.
+    private var conqueredIndices: [Int] {
+        guard let p = profile else { return [] }
+        return (0..<WorldCatalog.count).filter { p.isGilded($0) }
     }
 
     /// Fractional positions of each world node, forming a left→right winding trail,
@@ -91,8 +148,21 @@ struct MapView: View {
 
     var body: some View {
         ZStack {
-            mapBackdrop
-            if revealGoldenMap {
+            // Feathered color pools: a dedicated GeometryReader so the
+            // backdrop compositing has its own `scaled` node positions,
+            // computed the same way as the trail/node GeometryReader below.
+            // Both are unconstrained ZStack siblings alongside the
+            // safe-area-ignoring backdrop/mist, so they receive identical
+            // proposed sizes — the two `scaled` arrays are numerically the
+            // same (see the trail GeometryReader for the existing precedent).
+            GeometryReader { geo in
+                let scaled = nodePoints.map { CGPoint(x: $0.x * geo.size.width, y: $0.y * geo.size.height) }
+                backdropLayer(mapWidth: geo.size.width, scaled: scaled)
+            }
+            // Visual redesign: the warm tint is a "golden hour over a
+            // colored map" effect, so it fights flat grayscale — it only
+            // returns once the finale flood has restored the scene's color.
+            if revealGoldenMap, sceneColorRestored {
                 GoldenMapTint()
                     .transition(.opacity)
             }
@@ -114,17 +184,19 @@ struct MapView: View {
                 }
             }
             DriftingMist().ignoresSafeArea()
-            // Golden Guardians phase 4, beat 3: the quiet completion
-            // statement, permanent from the moment every guardian is gilded.
-            // Sits in the strip below the node labels/trail (the Master
-            // Quest bar that used to live here is removed entirely — WP5),
-            // so it never collides with the nodes or their labels on either
-            // form factor. No digits, no CTA — it simply exists.
-            if isGoldenEra, allGilded, revealGoldenMap, !showMapComplete, !showGuardiansAssemble {
+            // Golden Guardians phase 4, beat 3 (broadened by the pools
+            // refinement): a quiet strip caption, permanent from the moment
+            // the golden map is revealed — "defeat the guardians" pre-
+            // finale, flipping to "adventure complete" once every guardian
+            // is gilded. Sits in the strip below the node labels/trail (the
+            // Master Quest bar that used to live here is removed entirely —
+            // WP5), so it never collides with the nodes or their labels on
+            // either form factor. No digits, no CTA — it simply exists.
+            if isGoldenEra, revealGoldenMap, !showMapComplete, !showGuardiansAssemble {
                 if compact {
-                    VStack { Spacer(); goldenCompletionCaptionSlim }
+                    VStack { Spacer(); goldenCaptionSlim(allGilded: allGilded) }
                 } else {
-                    VStack { Spacer(); goldenCompletionCaption }
+                    VStack { Spacer(); goldenCaption(allGilded: allGilded) }
                 }
             }
             // Full-bleed title banner: painted sky fades into the map's fog.
@@ -157,9 +229,46 @@ struct MapView: View {
                 }
                 .ignoresSafeArea(edges: [.top, .horizontal])
                 .allowsHitTesting(false)
+                .saturation(sceneIsBW ? 0 : 1)
             }
             VStack { header; Spacer() }
+            // Guidance text refinement: the one-time "win it back" line,
+            // fading in under the banner once the reveal storm settles (see
+            // `revealGuidanceText`), auto-fading after ~4.5s or on any tap
+            // (the `simultaneousGesture` below). Always mounted so the
+            // opacity animation has something to animate; non-interactive
+            // and hidden from accessibility while invisible.
+            VStack {
+                Spacer().frame(height: compact ? 150 : 190)
+                goldenGuidanceText
+                Spacer()
+            }
+            .allowsHitTesting(false)
+            // Visual redesign: the reveal sequence's two lightning flashes —
+            // a plain white layer on top of everything, driven by
+            // `runRevealFlashes()`. Sits above the banner/header so it reads
+            // as a flash over the whole scene.
+            Color.white.opacity(flashOpacity)
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
+            // Visual redesign v2: the per-guardian slam flicker, layered above
+            // the main strike so the two never fight over one animation curve.
+            Color.white.opacity(slamFlashOpacity)
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
         }
+        // Guidance text refinement: "any tap" dismisses the guidance line
+        // early. `simultaneousGesture` never consumes the touch, so node/
+        // button taps underneath keep working exactly as before.
+        .simultaneousGesture(TapGesture().onEnded { dismissGuidanceText() })
+        // Visual redesign v2: low-amplitude screen shake riding the reveal
+        // sequence's double-strike beat (see `runRevealFlashes`). Applied to
+        // the whole scene ZStack above rather than any single node — reuses
+        // the existing `Shake` GeometryEffect (locked-node nudges use it at
+        // travel: 7); this is a much smaller travel so it reads as a jolt,
+        // not a wobble, and settles at animatableData == an integer so the
+        // scene always lands back at zero offset.
+        .modifier(Shake(travel: 4, animatableData: stormShakePhase))
         // In-hierarchy overlay, NOT a fullScreenCover: a cover's hosting layer
         // applies a lingering keyboard inset (keyboard still animating away
         // when a world is tapped right after name editing) that clips the
@@ -180,13 +289,46 @@ struct MapView: View {
                 },
                             onClose: {
                     withAnimation(.easeOut(duration: 0.25)) { sessionWorld = nil }
+                    // Feathered color pools: THIS fight just gilded the
+                    // world (it wasn't already gilded when the fight was
+                    // entered) → its pool should bloom, not just appear at
+                    // rest, when the map reappears. A re-fight of an
+                    // already-conquered world leaves this nil, so that
+                    // node's pool (already grown) never replays.
+                    //
+                    // Deliberately NOT using the `profile` computed property
+                    // (the @Query-backed one) here: it reads whatever
+                    // snapshot this view's last body evaluation captured,
+                    // which can still be the PRE-fight state at the exact
+                    // moment this closure runs (the query's own refresh
+                    // lands on a later render, not synchronously inside an
+                    // event handler) — confirmed live: without this direct
+                    // fetch the pool rendered at full size with no bloom,
+                    // because `isGilded` read stale. A fresh
+                    // `LearningService` fetch goes straight to the model
+                    // context, so it always sees the save `finishSession`
+                    // already committed before the wrap screen appeared.
+                    if sel.golden,
+                       LearningService(context: context).activeProfile().isGilded(sel.id),
+                       goldenFightBaselineMask & (1 << sel.id) == 0 {
+                        justConqueredWorld = sel.id
+                    }
                     checkUnlockReveal()
                 })
                 .environment(\.worldTheme, .forWorld(sel.id))
                 .transition(.opacity)
             }
         }
-        .fullScreenCover(isPresented: $showParent, onDismiss: { baselineCurrent = currentIndex }) { ParentAreaView() }
+        .fullScreenCover(isPresented: $showParent, onDismiss: {
+            baselineCurrent = currentIndex
+            // The Golden Guardians Preview buttons in ParentAreaView's dev
+            // pane mutate the profile while this map is live behind the
+            // modal — resync here so the map lands correctly without a
+            // relaunch. (Unguarded for now: this app has no #if DEBUG
+            // gating yet; a later compliance pass wraps the whole dev
+            // surface at once.)
+            syncGoldenPreviewState()
+        }) { ParentAreaView() }
         // In-hierarchy overlay, NOT a cover: the cover's hosting layer fights
         // the keyboard (see PlayerProfileView) — here the GUI stays frozen.
         // The map subtree has no text input of its own, so it ignores the
@@ -232,11 +374,26 @@ struct MapView: View {
             if showGuardiansAssemble {
                 GuardiansAssembleOverlay {
                     withAnimation(.easeOut(duration: 0.4)) { showGuardiansAssemble = false }
-                    // Golden Guardians phase 4, beat 2: the certificate gains
-                    // its gold seal. Same fullScreenCover the trophy button
-                    // uses — CertificateView derives goldSeal from the
-                    // profile itself, so presenting it here just works.
-                    showCertificate = true
+                    // Visual redesign, phase 4 beat 4: the finale color
+                    // flood — the whole scene's saturation returns (and
+                    // GoldenMapTint fades back in with it) once the takeover
+                    // is dismissed. The certificate (which also gains its
+                    // gold seal here — CertificateView derives that from the
+                    // profile) follows once the flood is visible, not
+                    // instantly, so the flood actually gets seen.
+                    if let p = profile {
+                        p.guardiansColorFloodPlayed = true
+                        try? context.save()
+                    }
+                    if reduceMotion {
+                        sceneColorRestored = true
+                        showCertificate = true
+                    } else {
+                        withAnimation(.easeInOut(duration: 1.2)) { sceneColorRestored = true }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
+                            showCertificate = true
+                        }
+                    }
                 }
                 .transition(.opacity)
             }
@@ -258,9 +415,25 @@ struct MapView: View {
             // button reopen and the phase-4 gold-seal reopen never replay it.
             guard pendingFirstTransform else { return }
             pendingFirstTransform = false
-            if isGoldenEra, !revealGoldenMap {
+            guard isGoldenEra, !revealGoldenMap else { return }
+            // Visual redesign: the reveal sequence — two quick lightning
+            // flashes, then the scene desaturates to B&W over ~0.8s while the
+            // seven guardians slam in staggered, all gold, on their grayscale
+            // circles. Reduced Motion skips straight to the settled state:
+            // no flashes, no slam, B&W scene with gold guardians at rest.
+            guard !reduceMotion else {
+                revealGoldenMap = true
+                revealGuidanceText(delay: 0.4)
+                return
+            }
+            runRevealFlashes {
                 playTransformAnimation = true
-                withAnimation(.easeIn(duration: 1.3)) { revealGoldenMap = true }
+                withAnimation(.easeIn(duration: 0.8)) { revealGoldenMap = true }
+                // Let the seven guardians finish their staggered slam-in
+                // (last stagger 0.72s + spring settle) before the guidance
+                // line fades in — a beat after the storm settles, not
+                // fighting it for attention.
+                revealGuidanceText(delay: 1.7)
             }
         }) {
             // Golden Guardians phase 4, beat 2: once every world is gilded,
@@ -277,7 +450,15 @@ struct MapView: View {
             // -demoGoldenEra): render golden immediately with no animation —
             // the transform only ever plays once, right after the map-
             // complete overlay is freshly dismissed (see that overlay below).
-            if isGoldenEra { revealGoldenMap = true }
+            if isGoldenEra {
+                revealGoldenMap = true
+                // Statically settle the finale flood too if it already played
+                // in an earlier session — otherwise this launch is caught
+                // between the assemble takeover and its dismissal (or is
+                // `-gildWorlds 127` demoing that exact moment), and the flood
+                // is still owed live, once the takeover below is dismissed.
+                sceneColorRestored = profile?.guardiansColorFloodPlayed ?? false
+            }
             // Recovery path (see checkGuardiansAssemble's doc comment): covers
             // both a relaunch between the seventh gild and the celebration,
             // and `-demoGoldenEra -gildWorlds 127` showing the takeover
@@ -338,6 +519,47 @@ struct MapView: View {
             Color.black.opacity(0.10)
         }
         .ignoresSafeArea()
+    }
+
+    /// Feathered color pools (Golden Guardians refinement): two-layer
+    /// compositing of the map backdrop. Bottom layer is the existing
+    /// desaturated backdrop (unchanged pre-finale look — `sceneIsBW` still
+    /// governs it exactly as before). On top, only while `sceneIsBW`, the
+    /// SAME backdrop rendered in full color is masked by a `ZStack` of soft
+    /// `RadialGradient` pools, one per CONQUERED node — so color returns to
+    /// the map AREA around a beaten guardian, not just its node circle.
+    ///
+    /// The finale flood is implemented as the EXISTING saturation crossfade
+    /// (not pools growing to cover the screen): the moment
+    /// `sceneColorRestored` flips true, `sceneIsBW` goes false, the bottom
+    /// layer's `.saturation` animates back to 1 (unchanged code, already
+    /// wrapped in a `withAnimation` by the assemble-overlay dismissal), and
+    /// this whole top layer — pools included — is removed from the
+    /// hierarchy in the same transaction, fading out under the default
+    /// `.opacity` transition. This composes more cleanly than growing pools
+    /// to cover the screen: one flag already governs both the whole-scene
+    /// saturation crossfade AND the pools, so there is nothing extra to
+    /// choreograph for the finale.
+    @ViewBuilder
+    private func backdropLayer(mapWidth: CGFloat, scaled: [CGPoint]) -> some View {
+        ZStack {
+            mapBackdrop
+                .saturation(sceneIsBW ? 0 : 1)
+            if sceneIsBW, !conqueredIndices.isEmpty {
+                mapBackdrop
+                    .mask(
+                        ZStack {
+                            ForEach(conqueredIndices, id: \.self) { i in
+                                if scaled.indices.contains(i) {
+                                    ConqueredPool(center: scaled[i], mapWidth: mapWidth,
+                                                  bloom: i == justConqueredWorld)
+                                }
+                            }
+                        }
+                    )
+                    .transition(.opacity)
+            }
+        }
     }
 
     // MARK: Header
@@ -455,7 +677,13 @@ struct MapView: View {
         let golden = isGoldenEra && revealGoldenMap
         VStack(spacing: 5) {
             Button {
-                if isGoldenEra { sessionWorld = WorldSelection(id: world.index, golden: true) }
+                if isGoldenEra {
+                    // Feathered color pools: snapshot the gilded mask right
+                    // before the fight so `onClose` can tell whether this
+                    // specific world just flipped (see `justConqueredWorld`).
+                    goldenFightBaselineMask = profile?.gildedWorldsMask ?? 0
+                    sessionWorld = WorldSelection(id: world.index, golden: true)
+                }
                 else if bossReady { sessionWorld = WorldSelection(id: world.index, boss: true) }
                 else if unlocked { sessionWorld = WorldSelection(id: world.index) }
                 else { nudgeLocked(world.index) }
@@ -464,7 +692,8 @@ struct MapView: View {
                     if golden {
                         GuardianBadge(index: world.index,
                                       gilded: profile?.isGilded(world.index) ?? false,
-                                      diameter: badgeD, animate: playTransformAnimation)
+                                      diameter: badgeD, animate: playTransformAnimation,
+                                      onLand: playTransformAnimation ? flickerSlam : nil)
                     } else if unlocked {
                         if world.index == revealWorld {
                             UnlockRevealNode(index: world.index, diameter: badgeD) { revealWorld = nil }
@@ -480,9 +709,10 @@ struct MapView: View {
                     // whichever world happened to be last.
                     if isCurrent, !golden { PulsingRing(diameter: badgeD * 1.19) }
                     // The green cleared-seal is the OLD map's language; on the
-                    // golden map the guardian itself is the progress signal
-                    // (un-gold = challenge waiting, gold = conquered), so the
-                    // seal would only dilute "countable at a glance".
+                    // golden map the node circle's color is the progress
+                    // signal (grayscale = challenge waiting, restored color
+                    // = conquered — see GuardianNodeBadge), so the seal would
+                    // only dilute "countable at a glance".
                     if cleared, !golden {
                         Image(systemName: "checkmark.seal.fill").font(.system(size: compact ? 21 : 26))
                             .foregroundStyle(Theme.Color.correct)
@@ -501,7 +731,7 @@ struct MapView: View {
                 // two-line stack keeps this the same footprint as the star
                 // row + name capsule it replaces, so it still fits both the
                 // iPad layout and the tight iPhone-landscape trail.
-                goldenLabel(world)
+                goldenLabel(world, conquered: profile?.isGilded(world.index) ?? false)
             } else if unlocked {
                 // Star sockets — one star per completed quest; cleared worlds
                 // always wear the full set.
@@ -549,59 +779,78 @@ struct MapView: View {
         .animation(Theme.Motion.snappy, value: hintNode)
     }
 
-    /// Golden Guardians phase 3 node caption: world name over the tables it
-    /// owns ("Aurora Summit" / "the +12s"). Table names only, never a fact
-    /// count or fraction (spec: no child-facing numbers on the map).
+    /// Golden Guardians node caption (visual redesign): the BOSS NAME over an
+    /// explicit challenge/conquered line — "Geode Golem" / "+9 Challenge",
+    /// flipping to "+9 Conquered!" once that world's guardian is gilded.
+    /// Table numbers only, never a fact count or fraction (spec: no
+    /// child-facing numbers on the map).
     @ViewBuilder
-    private func goldenLabel(_ world: World) -> some View {
+    private func goldenLabel(_ world: World, conquered: Bool) -> some View {
         VStack(spacing: 1) {
-            Text(world.name)
+            Text(world.bossName)
                 .font(Theme.Font.label(compact ? 11 : 13)).foregroundStyle(.white)
-                .lineLimit(1).minimumScaleFactor(0.7)
-            Text(Self.tableLabel(WorldCatalog.tables(inWorld: world.index)))
-                .font(Theme.Font.label(compact ? 9 : 11)).foregroundStyle(Color(red: 1, green: 0.86, blue: 0.55))
                 .lineLimit(1).minimumScaleFactor(0.6)
+            Text(Self.tableChallengeLabel(WorldCatalog.tables(inWorld: world.index), conquered: conquered))
+                .font(Theme.Font.label(compact ? 9 : 11)).foregroundStyle(Color(red: 1, green: 0.86, blue: 0.55))
+                .lineLimit(1).minimumScaleFactor(0.55)
         }
         .padding(.horizontal, 10).padding(.vertical, compact ? 3 : 4)
         .background(Capsule().fill(.black.opacity(0.55)))
     }
 
-    /// "the +8s" / "the +3s & +4s" / "the +0s, +1s, +2s, +10s & +5s" — the
-    /// tables a world owns, in curriculum order, joined the way the spec's
-    /// examples read.
-    private static func tableLabel(_ tables: [Int]) -> String {
-        let parts = tables.map { "+\($0)s" }
-        switch parts.count {
-        case 0: return ""
-        case 1: return "the \(parts[0])"
-        case 2: return "the \(parts[0]) & \(parts[1])"
-        default: return "the \(parts.dropLast().joined(separator: ", ")) & \(parts.last!)"
+    /// "+8 Challenge" / "+3 & +4 Challenge" / "+0–2, +5 & +10 Challenge" (The
+    /// Wandering Isles' five tables compress a run of three-or-more
+    /// consecutive numbers into a dash range; the spec's own examples never
+    /// compress a run of two — "+3 & +4", not "+3–4"). Conquered worlds get
+    /// the same compression with the verb flipped: "+8 Conquered!". Real plus
+    /// sign, word-form nowhere else needed since these are table numbers.
+    private static func tableChallengeLabel(_ tables: [Int], conquered: Bool) -> String {
+        let sorted = tables.sorted()
+        guard !sorted.isEmpty else { return "" }
+        var groups: [String] = []
+        var i = 0
+        while i < sorted.count {
+            var j = i
+            while j + 1 < sorted.count, sorted[j + 1] == sorted[j] + 1 { j += 1 }
+            if j - i >= 2 {
+                groups.append("+\(sorted[i])–\(sorted[j])")
+            } else {
+                for k in i...j { groups.append("+\(sorted[k])") }
+            }
+            i = j + 1
         }
+        let joined = groups.count <= 1
+            ? (groups.first ?? "")
+            : groups.dropLast().joined(separator: ", ") + " & " + groups.last!
+        return "\(joined) \(conquered ? "Conquered!" : "Challenge")"
     }
 
-    /// Golden Guardians phase 4, beat 3: iPad/landscape-regular reading of the
-    /// quiet completion caption (see the `isGoldenEra`/`allGilded` guard above).
-    private var goldenCompletionCaption: some View {
+    /// Golden Guardians phase 4, beat 3 (broadened by the pools refinement):
+    /// iPad/landscape-regular reading of the quiet strip caption (see the
+    /// `isGoldenEra`/`revealGoldenMap` guard above). Pre-finale reads "defeat
+    /// the guardians"; once every guardian is gilded it flips to the
+    /// original completion line.
+    private func goldenCaption(allGilded: Bool) -> some View {
         HStack(spacing: 10) {
             Image(systemName: "sparkles").font(.system(size: 16))
                 .foregroundStyle(Color(red: 1, green: 0.86, blue: 0.55))
-            Text("Seven Worlds conquered · Adventure complete")
+            Text(Self.goldenCaptionText(allGilded: allGilded))
                 .font(Theme.Font.label(14)).tracking(1)
                 .foregroundStyle(Color(red: 1, green: 0.86, blue: 0.55))
         }
         .padding(.horizontal, 18).padding(.vertical, 10)
         .darkPlate()
         .padding(.bottom, 16)
-        .accessibilityLabel("Seven Worlds conquered. Adventure complete.")
+        .accessibilityLabel(Self.goldenCaptionText(allGilded: allGilded))
     }
 
     /// iPhone-landscape reading: the ~35pt strip below the node labels,
     /// single-row and compact to match the map's other iPhone chrome.
-    private var goldenCompletionCaptionSlim: some View {
+    private func goldenCaptionSlim(allGilded: Bool) -> some View {
         HStack(spacing: 8) {
             Image(systemName: "sparkles").font(.system(size: 12))
                 .foregroundStyle(Color(red: 1, green: 0.86, blue: 0.55))
-            Text("Seven Worlds conquered · Adventure complete")
+            Text(Self.goldenCaptionText(allGilded: allGilded))
                 .font(Theme.Font.label(10)).tracking(0.5)
                 .foregroundStyle(Color(red: 1, green: 0.86, blue: 0.55))
                 .lineLimit(1).minimumScaleFactor(0.7)
@@ -609,7 +858,112 @@ struct MapView: View {
         .padding(.horizontal, 12).padding(.vertical, 6)
         .darkPlate(corner: 16)
         .padding(.bottom, 3)
-        .accessibilityLabel("Seven Worlds conquered. Adventure complete.")
+        .accessibilityLabel(Self.goldenCaptionText(allGilded: allGilded))
+    }
+
+    /// No digits, no CTA, on either wording — just a quiet statement of
+    /// where the adventure stands.
+    private static func goldenCaptionText(allGilded: Bool) -> String {
+        allGilded ? "Seven Worlds conquered · Adventure complete"
+                  : "Defeat the Golden Guardians to bring the world back to life"
+    }
+
+    /// Guidance text refinement: the one-time line that fades in as the
+    /// reveal storm settles — "the guardians took the color, win it back."
+    /// Always mounted (see the body's `VStack`); purely opacity-driven so
+    /// `revealGuidanceText`/`dismissGuidanceText` can animate it without
+    /// mount/unmount churn. Non-interactive and gold-toned to match the
+    /// golden era's only other color on screen.
+    private var goldenGuidanceText: some View {
+        Text("The Guardians have taken the world's color. Win it back!")
+            .font(Theme.Font.label(compact ? 12 : 15)).tracking(0.4)
+            .foregroundStyle(Color(red: 1, green: 0.86, blue: 0.55))
+            .multilineTextAlignment(.center)
+            .lineLimit(2).minimumScaleFactor(0.8)
+            .padding(.horizontal, 16).padding(.vertical, compact ? 6 : 9)
+            .darkPlate(corner: compact ? 16 : 20)
+            .opacity(guidanceOpacity)
+            .accessibilityHidden(guidanceOpacity == 0)
+    }
+
+    /// Fades the guidance line in after `delay` (letting the reveal storm's
+    /// flashes/slam-in settle first), then auto-fades it back out ~4.5s
+    /// later. One-time per reveal — only ever called from the certificate's
+    /// `onDismiss` reveal sequence, which itself only ever fires once
+    /// (`pendingFirstTransform`), so this never replays on a later launch.
+    private func revealGuidanceText(delay: Double) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+            withAnimation(.easeIn(duration: 0.4)) { guidanceOpacity = 1 }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 4.5) {
+                withAnimation(.easeOut(duration: 0.5)) { guidanceOpacity = 0 }
+            }
+        }
+    }
+
+    /// "Or on any tap" — dismisses the guidance line early (see the body's
+    /// `simultaneousGesture`). A no-op once it's already faded, so a tap
+    /// after the auto-fade doesn't retrigger anything.
+    private func dismissGuidanceText() {
+        guard guidanceOpacity > 0 else { return }
+        withAnimation(.easeOut(duration: 0.3)) { guidanceOpacity = 0 }
+    }
+
+    /// Visual redesign v2 ("amp the storm"): the reveal sequence's opening
+    /// beats — an opening strike, a beat, a fast double-strike (brighter on
+    /// the second hit, with a low-amplitude screen shake riding it), the B&W
+    /// drain starting right after, and one more big strike partway through
+    /// that drain. Every strike pairs a full-screen white pulse with the
+    /// `phaseJolt` haptic/SFX ("electric zap"). `phaseJolt` fires `.rigid`
+    /// impact rather than `.starSlam`'s `.heavy` (the single strongest
+    /// haptic in `Feedback.Event`) because `.starSlam`'s paired sound is
+    /// "sfx_star_slam.wav" — a real asset, thematically a star hitting its
+    /// socket, not a lightning strike; reusing it here would sound wrong.
+    /// `phaseJolt`'s own sound ("sfx_phase_zap.wav") already exists and was
+    /// the original choice for this exact beat, so it stays. Calls
+    /// `completion` once the double-strike lands, so the caller can chain
+    /// the B&W desaturation + guardian slam-in that follow, then keeps
+    /// running to fire the fourth strike mid-drain. Only ever called on the
+    /// live, non-Reduced-Motion path (see the certificate's `onDismiss`).
+    private func runRevealFlashes(completion: @escaping () -> Void) {
+        func strike(at delay: Double, peak: Double, up: Double = 0.06, down: Double = 0.08) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                Feedback.fire(.phaseJolt)
+                withAnimation(.easeOut(duration: up)) { flashOpacity = peak }
+                DispatchQueue.main.asyncAfter(deadline: .now() + up) {
+                    withAnimation(.easeIn(duration: down)) { flashOpacity = 0 }
+                }
+            }
+        }
+        // Strike 1: the opening bolt.
+        strike(at: 0, peak: 0.9)
+        // Beat, then the fast double-strike — two ~0.12s flashes ~0.15s
+        // apart, the second brighter — with a quick low-amplitude screen
+        // shake spanning both hits.
+        strike(at: 0.35, peak: 0.85, up: 0.04, down: 0.08)
+        strike(at: 0.5, peak: 0.95, up: 0.04, down: 0.08)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            withAnimation(.easeInOut(duration: 0.27)) { stormShakePhase += 1 }
+        }
+        // The B&W drain starts immediately after the double strike lands
+        // (0.5 + 0.12 = 0.62s in); the drain itself is the caller's 0.8s
+        // `withAnimation` on `revealGoldenMap`.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.62) { completion() }
+        // Strike 4: one more big flash roughly halfway through the drain.
+        strike(at: 1.02, peak: 0.9)
+    }
+
+    /// Visual redesign v2: a brief 0.25-opacity global flicker fired as each
+    /// guardian slams into place (see `GuardianBadge.onLand`). Chosen over a
+    /// per-node radial bloom: at the 82pt iPhone-landscape badge size the
+    /// trail nodes sit close enough together that a bloom sized to read
+    /// clearly (roughly 1.5-1.8x the badge) risked clipping into the
+    /// neighboring node or its label capsule. A global flicker gets the same
+    /// "something just landed" beat without that risk.
+    private func flickerSlam() {
+        withAnimation(.easeOut(duration: 0.08)) { slamFlashOpacity = 0.25 }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
+            withAnimation(.easeIn(duration: 0.2)) { slamFlashOpacity = 0 }
+        }
     }
 
     /// A tap on a fogged node shouldn't feel broken: wiggle it and say what unlocks it.
@@ -663,6 +1017,48 @@ struct MapView: View {
         try? context.save()
         withAnimation(.easeOut(duration: 0.3)) { showGuardiansAssemble = true }
     }
+
+    // MARK: Dev-only: Golden Guardians Preview sync
+    //
+    // Unguarded for now — this app has no #if DEBUG gating yet; a later
+    // compliance pass wraps the whole dev surface at once.
+    // ParentAreaView's dev pane can rewrite the active
+    // profile's golden-era flags (award/gild/finale/reset) while this map is
+    // still on screen behind the Parent Area modal — none of that flows
+    // through the normal gameplay triggers (a session closing, boss falling,
+    // etc.), so without this the map would sit stale until relaunch. This
+    // is purely a RESYNC: it follows whatever the profile now says, using
+    // the exact same one-time-flag-guarded paths real gameplay uses
+    // (`checkUnlockReveal`/`checkGuardiansAssemble`) so a takeover can only
+    // fire once, and settles `revealGoldenMap`/`sceneColorRestored`
+    // statically (no reveal animation) exactly like `.onAppear` already does
+    // for "already in the golden era at launch" — never a new transform
+    // replay. Safe to call after any of the five preview buttons, in any
+    // order, since each of them already reseeds its own flags fully.
+    private func syncGoldenPreviewState() {
+        if isGoldenEra {
+            // Static settle, matching `.onAppear`'s "already golden at
+            // launch" branch — not the animated reveal sequence, which only
+            // ever plays from the certificate's onDismiss right after a
+            // fresh map-complete award.
+            revealGoldenMap = true
+            sceneColorRestored = profile?.guardiansColorFloodPlayed ?? false
+        } else {
+            // Reset to mid-game (or any non-golden state): no golden
+            // leftovers on the live map.
+            revealGoldenMap = false
+            sceneColorRestored = false
+            playTransformAnimation = false
+        }
+        // Real-gameplay paths: fire the map-complete takeover if the profile
+        // now reads "map beaten, not yet celebrated" (the award-ceremony
+        // button), and the assemble takeover if it reads "all seven gilded,
+        // not yet celebrated" (the finale button). Both are no-ops when
+        // their guard flag is already true, so calling them after every
+        // button press is harmless.
+        checkUnlockReveal()
+        checkGuardiansAssemble()
+    }
 }
 
 /// The standard unlocked world badge on the map.
@@ -677,45 +1073,88 @@ private struct UnlockedBadge: View {
     }
 }
 
-/// Golden Guardians phase 3 map node. Wraps `GuardianNodeBadge` (the still
-/// guardian art in its dark-challenger or full-gold treatment) and, when
-/// `animate` is true, plays the one-time transform: a 3D flip/crossfade from
-/// the ordinary world badge to the guardian, staggered per node so the
-/// worlds don't all turn at once. `animate` is false on every launch except
-/// the moment right after the map-complete overlay is first dismissed (see
-/// MapView's showMapComplete handling), so a later launch in the golden era
-/// just renders the guardian directly with no flip.
+/// Golden Guardians map node (visual redesign). Wraps `GuardianNodeBadge`
+/// (always gold; the conquered/challenge signal lives in its own circle
+/// background) and, when `animate` is true, plays the one-time reveal:
+/// the guardian slams in — scale ~1.5→1.0 + opacity, spring — staggered
+/// per node (~0.12s apart) so the seven don't all land at once. `animate`
+/// is false on every launch except the moment right after the reveal
+/// sequence's flash+desaturate beats fire (see MapView's certificate
+/// `onDismiss`), so a later launch in the golden era just renders the
+/// guardian directly at rest.
 private struct GuardianBadge: View {
     let index: Int
     let gilded: Bool
     var diameter: CGFloat = 104
     var animate: Bool = false
+    /// Visual redesign v2: fired the instant this guardian's slam-in begins
+    /// (only ever set on the animated reveal path) so the caller can flash a
+    /// brief global accent per landing — see MapView's `flickerSlam()`.
+    var onLand: (() -> Void)? = nil
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var revealed = false
 
     var body: some View {
-        ZStack {
-            UnlockedBadge(index: index, diameter: diameter)
-                .opacity(revealed ? 0 : 1)
-                .rotation3DEffect(.degrees(revealed ? 90 : 0), axis: (x: 0, y: 1, z: 0))
-            GuardianNodeBadge(theme: .forWorld(index), gilded: gilded, diameter: diameter)
-                .opacity(revealed ? 1 : 0)
-                .rotation3DEffect(.degrees(revealed ? 0 : -90), axis: (x: 0, y: 1, z: 0))
-        }
-        .onAppear {
-            guard animate, !reduceMotion else { revealed = true; return }
-            let stagger = Double(index) * 0.12
-            withAnimation(.spring(response: 0.6, dampingFraction: 0.68).delay(0.25 + stagger)) {
-                revealed = true
+        GuardianNodeBadge(theme: .forWorld(index), gilded: gilded, diameter: diameter)
+            .scaleEffect(revealed ? 1 : 1.5)
+            .opacity(revealed ? 1 : 0)
+            .onAppear {
+                guard animate, !reduceMotion else { revealed = true; return }
+                let stagger = Double(index) * 0.12
+                DispatchQueue.main.asyncAfter(deadline: .now() + stagger) { onLand?() }
+                withAnimation(.spring(response: 0.5, dampingFraction: 0.62).delay(stagger)) {
+                    revealed = true
+                }
             }
-        }
     }
 }
 
-/// The golden era's "same map at golden hour" atmosphere: a low-opacity warm
+/// A soft feathered color pool around a conquered guardian's node (Golden
+/// Guardians refinement). Composited as part of the mask over the full-color
+/// backdrop layer (see `MapView.backdropLayer`) — this view itself never
+/// touches color, only alpha: a `RadialGradient` from opaque white at the
+/// center to fully transparent at `radius`, and `.mask` reads alpha, not
+/// hue. The gradient's own falloff IS the feathered edge, so there is never
+/// a hard boundary. Radius ≈ 0.20–0.26 of the map width (tuned so two
+/// adjacent conquered nodes' pools merge organically, matching the comp).
+///
+/// `bloom` is true only for the node whose golden fight was JUST won and
+/// the map just returned to (see `MapView.justConqueredWorld`): the pool
+/// grows from ~0 scale/opacity over 1.2s. Every other pool — already
+/// conquered on a prior visit to this map instance, or rendered on a later
+/// launch — settles at full size immediately, no animation, no replay
+/// (matching `GuardianBadge`'s own animate-once convention above).
+private struct ConqueredPool: View {
+    let center: CGPoint
+    let mapWidth: CGFloat
+    var bloom: Bool = false
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var progress: CGFloat = 0
+
+    private var radius: CGFloat { mapWidth * 0.23 }
+
+    var body: some View {
+        RadialGradient(colors: [.white, .white.opacity(0)],
+                       center: .center, startRadius: 0, endRadius: radius)
+            .frame(width: radius * 2, height: radius * 2)
+            .scaleEffect(progress)
+            .opacity(progress)
+            .position(center)
+            .onAppear {
+                guard bloom, !reduceMotion else { progress = 1; return }
+                withAnimation(.easeOut(duration: 1.2)) { progress = 1 }
+            }
+    }
+}
+
+/// The finale's "same map at golden hour" atmosphere: a low-opacity warm
 /// gradient scrim over the whole map. Tasteful on purpose — this sits well
-/// under the node art and trail, not a yellow filter over everything.
+/// under the node art and trail, not a yellow filter over everything. Only
+/// shown once the scene's color has returned (see `sceneColorRestored` in
+/// MapView) — it fights the golden era's pre-finale grayscale, so it's
+/// withheld until then.
 private struct GoldenMapTint: View {
     var body: some View {
         LinearGradient(colors: [Color(red: 1, green: 0.78, blue: 0.35).opacity(0.20),

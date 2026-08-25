@@ -93,6 +93,7 @@ struct LearningService {
         profile.mapCompleteCelebrated = false
         profile.gildedWorldsMask = 0
         profile.guardiansAssembleCelebrated = false
+        profile.guardiansColorFloodPlayed = false
         profile.bestStreak = 0
         profile.speedBonusCount = 0
         profile.pausedQuestDate = nil
@@ -123,6 +124,20 @@ struct LearningService {
         let now = Date()
         p.onboarded = true   // demo jumps never trip the first-run gate
         p.seenWorldIntrosMask = (1 << WorldCatalog.count) - 1   // and never the reveal
+        // Explicitly reset (not just "left alone"): this demo can now run on
+        // a LIVE profile that a Parent Area preview button (award ceremony /
+        // golden era / gilded-mask) already drove into the golden era on the
+        // SAME persisted profile. `markWorldCleared` below only ever OR's
+        // bits into `clearedWorldsMask`, so without zeroing it here, worlds
+        // 3–6 cleared by an earlier preview would survive this call
+        // untouched even though this state means "mid-game" — leaving the
+        // profile reading as golden-era-complete to MapView.isGoldenEra.
+        // Same hardening reasoning as applyDemoMapDone/applyDemoGoldenEra.
+        p.clearedWorldsMask = 0
+        p.mapCompleteCelebrated = false
+        p.gildedWorldsMask = 0
+        p.guardiansAssembleCelebrated = false
+        p.guardiansColorFloodPlayed = false
         // Bosses count as beaten for the demo-cleared worlds; stars match.
         for w in 0..<WorldCatalog.count where complete || w <= 2 { p.markWorldCleared(w) }
         p.questStars = complete ? p.starsPerWorldGoal * WorldCatalog.count
@@ -172,6 +187,8 @@ struct LearningService {
         // takeover ever shows, which is exactly what the spec forbids.
         p.mapCompleteCelebrated = false
         p.gildedWorldsMask = 0
+        p.guardiansAssembleCelebrated = false
+        p.guardiansColorFloodPlayed = false
         for (i, f) in p.facts.enumerated() {
             f.introduced = true
             if i % 4 == 0 {
@@ -209,6 +226,7 @@ struct LearningService {
         // again, not silently skip it because a stale flag survived.
         p.gildedWorldsMask = 0
         p.guardiansAssembleCelebrated = false
+        p.guardiansColorFloodPlayed = false
         for (i, f) in p.facts.enumerated() {
             switch i % 5 {
             case 0:
@@ -407,6 +425,21 @@ struct LearningService {
     /// Simulator verification only — see `-gildWorlds` in LevelUpMathApp.
     func setGildedWorldsMask(_ mask: Int) {
         activeProfile().gildedWorldsMask = mask
+        try? context.save()
+    }
+
+    /// Dev-area knob: force a gilded-worlds bitmask AND reset the phase-4
+    /// finale flags (`guardiansAssembleCelebrated`, `guardiansColorFloodPlayed`)
+    /// so the salute takeover -> color flood -> gold-seal certificate replays
+    /// live, the same as a fresh seventh gild would. `setGildedWorldsMask`
+    /// alone leaves those flags as they were, which is correct for previewing
+    /// a partial mask (e.g. three guardians) but would silently skip the
+    /// finale beats when previewing all seven. Simulator verification only.
+    func setGildedWorldsMaskReplayingFinale(_ mask: Int) {
+        let p = activeProfile()
+        p.gildedWorldsMask = mask
+        p.guardiansAssembleCelebrated = false
+        p.guardiansColorFloodPlayed = false
         try? context.save()
     }
 
