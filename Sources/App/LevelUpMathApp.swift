@@ -33,12 +33,15 @@ struct LevelUpMathApp: App {
         // Visual redesign v2: pick which conquered-node treatment
         // (`ConqueredStyle`) to render for on-device comparison — 1 Crown,
         // 2 Sash, 3 Laurel. Defaults to Crown when absent, which is also
-        // what ships (nothing but this launch-arg parsing ever touches
-        // `ConqueredStyle.current`). Simulator verification only.
+        // what every Release build renders (nothing outside this #if DEBUG
+        // block ever touches `ConqueredStyle.current`). Simulator
+        // verification only.
+        #if DEBUG
         if let i = args.firstIndex(of: "-conqueredStyle"), i + 1 < args.count,
            let n = Int(args[i + 1]), let style = ConqueredStyle(rawValue: n) {
             ConqueredStyle.current = style
         }
+        #endif
         MainActor.assumeIsolated {
             QuestPlanDump.runIfRequested()
             GoldenSimDump.runIfRequested()

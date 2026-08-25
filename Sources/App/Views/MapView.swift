@@ -321,13 +321,15 @@ struct MapView: View {
         }
         .fullScreenCover(isPresented: $showParent, onDismiss: {
             baselineCurrent = currentIndex
+            #if DEBUG
             // The Golden Guardians Preview buttons in ParentAreaView's dev
             // pane mutate the profile while this map is live behind the
             // modal — resync here so the map lands correctly without a
-            // relaunch. (Unguarded for now: this app has no #if DEBUG
-            // gating yet; a later compliance pass wraps the whole dev
-            // surface at once.)
+            // relaunch. Release builds never compile this call: the dev
+            // pane itself is #if DEBUG-gated, so nothing but this hook would
+            // ever flip these flags outside of real gameplay anyway.
             syncGoldenPreviewState()
+            #endif
         }) { ParentAreaView() }
         // In-hierarchy overlay, NOT a cover: the cover's hosting layer fights
         // the keyboard (see PlayerProfileView) — here the GUI stays frozen.
@@ -1020,9 +1022,7 @@ struct MapView: View {
 
     // MARK: Dev-only: Golden Guardians Preview sync
     //
-    // Unguarded for now — this app has no #if DEBUG gating yet; a later
-    // compliance pass wraps the whole dev surface at once.
-    // ParentAreaView's dev pane can rewrite the active
+    // Debug builds only. ParentAreaView's dev pane can rewrite the active
     // profile's golden-era flags (award/gild/finale/reset) while this map is
     // still on screen behind the Parent Area modal — none of that flows
     // through the normal gameplay triggers (a session closing, boss falling,
@@ -1035,6 +1035,7 @@ struct MapView: View {
     // for "already in the golden era at launch" — never a new transform
     // replay. Safe to call after any of the five preview buttons, in any
     // order, since each of them already reseeds its own flags fully.
+    #if DEBUG
     private func syncGoldenPreviewState() {
         if isGoldenEra {
             // Static settle, matching `.onAppear`'s "already golden at
@@ -1059,6 +1060,7 @@ struct MapView: View {
         checkUnlockReveal()
         checkGuardiansAssemble()
     }
+    #endif
 }
 
 /// The standard unlocked world badge on the map.

@@ -21,7 +21,10 @@ struct ParentAreaView: View {
     @State private var deleteTarget: Profile?
     @State private var resetTarget: Profile?
 
-    // Developer / testing
+    // Developer / testing — DEBUG ONLY. None of this may ship: App Review
+    // Guideline 2.3.1(a) forbids hidden/undocumented features, and these
+    // controls fabricate and overwrite a child's real progress.
+    #if DEBUG
     @State private var devUnlocked = false   // gate per sheet-presentation; spoils world names otherwise
     @State private var testWorld = 0
     @State private var testLaunch: WorldSelection?
@@ -29,10 +32,15 @@ struct ParentAreaView: View {
     @State private var showBossGallery = false
     @State private var galleryInitialWorld = 0
     @State private var pendingBossWorld: Int?
+    #endif
     @State private var startOverTarget: Profile?
 
     private let avatars = AvatarCatalog.keys
     @State private var howOpen = false
+
+    /// Published alongside the App Store listing (GitHub Pages).
+    static let privacyURL = URL(string: "https://nikolausj1.github.io/addition-adventure/privacy-policy.html")!
+    static let supportURL = URL(string: "https://nikolausj1.github.io/addition-adventure/support.html")!
     @Environment(\.verticalSizeClass) private var vSize   // compact = iPhone landscape
     private var compact: Bool { vSize == .compact }
 
@@ -56,6 +64,7 @@ struct ParentAreaView: View {
             let args = ProcessInfo.processInfo.arguments
             if args.contains("-openGate") { showGate = true }
             if args.contains("-openHow") { howOpen = true }
+            #if DEBUG
             if args.contains("-openDev") { devUnlocked = true }
             // Optional companion to -autostartBossGallery: open the gallery already
             // showing a specific world. Same idiom as -starsGoal in LevelUpMathApp.
@@ -65,10 +74,14 @@ struct ParentAreaView: View {
             // Deep-link straight into the boss gallery (see MapView, which sets
             // showParent for this same flag so a single arg reaches all the way).
             if args.contains("-autostartBossGallery") { devUnlocked = true; showBossGallery = true }
+            #endif
             if args.contains("-testStartOver") {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 2) { performStartOver(profiles.first(where: { $0.isActive })) }
             }
         }
+        // Developer-only presentations (certificate preview, boss gallery, and
+        // format jump-ins) — compiled out of Release with the card itself.
+        #if DEBUG
         .fullScreenCover(isPresented: $showCert) { CertificateView(name: activeName) }
         // Full screen, NOT a sheet: on iPad a sheet is a small fixed-size floating
         // card, so the guardian ends up tiny no matter what size the gallery asks
@@ -90,6 +103,7 @@ struct ParentAreaView: View {
             SessionView(worldIndex: sel.id, speedRound: sel.speed, boss: sel.boss, testFormat: sel.testFormat)
                 .environment(\.worldTheme, .forWorld(sel.id))
         }
+        #endif
         .alert("New profile", isPresented: $showAdd) {
             TextField("Name", text: $addName)
             Button("Create") { _ = service.createProfile(name: addName, avatar: avatars.randomElement()!); addName = "" }
@@ -165,7 +179,13 @@ struct ParentAreaView: View {
                         profilesCard
                         settingsCard
                         howItWorksCard
+                        // Debug builds only. Shipping this was an App Store
+                        // blocker: Guideline 2.3.1(a) forbids "hidden, dormant,
+                        // or undocumented features", and these buttons fabricate
+                        // and overwrite real progress.
+                        #if DEBUG
                         developerCard
+                        #endif
                     }
                     .padding(.bottom, Theme.Metric.pad)
                 }
@@ -308,15 +328,20 @@ struct ParentAreaView: View {
 
     // MARK: Developer / testing
 
+    #if DEBUG
     @ViewBuilder
     private var developerCard: some View {
         if devUnlocked { devCardOpen } else { devCardLocked }
     }
 
     /// Collapsed state: the section exists but its contents (world names, session
-    /// jumps) stay behind the gate so the child can't spoil or skip progression.
+    /// jumps) stay collapsed by default so a glance at the Parent Area doesn't
+    /// spoil world names — but this whole card is DEBUG-only already (see the
+    /// `#if DEBUG` wrapping this file's developer surfaces), so there's no
+    /// child-facing risk left to gate with a second prompt on top of the
+    /// Parent Area's own entry gate. Tapping unlocks directly.
     private var devCardLocked: some View {
-        Button { gated { devUnlocked = true } } label: {
+        Button { devUnlocked = true } label: {
             HStack {
                 sectionHeader("Developer / Testing", "lock.fill")
                 Spacer()
@@ -399,6 +424,7 @@ struct ParentAreaView: View {
         }
         .buttonStyle(.bordered).tint(Theme.Color.primary)
     }
+    #endif   // DEBUG — developer/testing surfaces end here
 
     // MARK: Profiles
 
@@ -460,6 +486,17 @@ struct ParentAreaView: View {
                 Text("Off keeps practice pressure-free (times are still tracked). The Speed Round always shows its timer.")
                     .font(Theme.Font.label(12)).foregroundStyle(Theme.Color.inkSoft)
             }
+            Divider().padding(.vertical, 2)
+            // Guideline 5.1.1(i) requires the privacy policy to be reachable
+            // "within the app", not only from the App Store listing. Parent
+            // area is the right home: it's the adult surface of the app.
+            Text("This app collects no data and works entirely offline.")
+                .font(Theme.Font.label(12)).foregroundStyle(Theme.Color.inkSoft)
+            HStack(spacing: 14) {
+                Link("Privacy Policy", destination: Self.privacyURL)
+                Link("Support", destination: Self.supportURL)
+            }
+            .font(Theme.Font.label(14))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(Theme.Metric.pad).cardSurface()
