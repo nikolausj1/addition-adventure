@@ -278,6 +278,7 @@ struct MapView: View {
             if let sel = sessionWorld {
                 SessionView(worldIndex: sel.id, speedRound: sel.speed, boss: sel.boss,
                             golden: sel.golden, training: sel.training,
+                            exhibition: sel.exhibition,
                             onTrain: { w in
                     // Close the current (golden) overlay, then reopen a
                     // training session on the same world once it's out of
@@ -316,6 +317,7 @@ struct MapView: View {
                     checkUnlockReveal()
                 })
                 .environment(\.worldTheme, .forWorld(sel.id))
+                .id(sel.token)   // see WorldSelection.token
                 .transition(.opacity)
             }
         }
@@ -687,6 +689,21 @@ struct MapView: View {
                     sessionWorld = WorldSelection(id: world.index, golden: true)
                 }
                 else if bossReady { sessionWorld = WorldSelection(id: world.index, boss: true) }
+                else if cleared {
+                    // Pre-golden-era CLEARED world (its boss is beaten). Behind
+                    // the bossReplays flag this goes STRAIGHT into an
+                    // exhibition re-fight of that world's boss — no menu,
+                    // nothing recorded (see SessionViewModel.exhibition). Flag
+                    // off: the node is inert. Either way the OLD behavior —
+                    // tapping a cleared world starting a practice QUEST — is
+                    // deliberately gone, which leaves the isPracticeReplay /
+                    // PRACTICE-chip path in SessionViewModel/SessionView
+                    // unreachable for quests (left in place, harmless).
+                    if FeatureFlag.bossReplaysEnabled {
+                        sessionWorld = WorldSelection(id: world.index, boss: true,
+                                                      exhibition: true)
+                    }
+                }
                 else if unlocked { sessionWorld = WorldSelection(id: world.index) }
                 else { nudgeLocked(world.index) }
             } label: {
@@ -1266,5 +1283,16 @@ struct WorldSelection: Identifiable {
     var golden: Bool = false
     /// "Train the +Ns first" — offered when a golden fight is lost.
     var training: Bool = false
+    /// Boss replay of an already-cleared world (pre-golden-era, behind
+    /// FeatureFlag.bossReplays): full boss presentation, records nothing.
+    var exhibition: Bool = false
     var testFormat: MasteryStage? = nil
+    /// Fresh identity per selection. The wrap's train/replay buttons close the
+    /// session overlay and reopen a training one on the same world 0.3s later
+    /// — inside the closing 0.25s opacity transition. Same structural spot,
+    /// same `id`, so without an explicit identity SwiftUI can cancel the
+    /// removal and RESURRECT the old SessionView (finished vm, stale wrap,
+    /// onAppear never re-fires) instead of building the training session.
+    /// `.id(token)` on the SessionView makes every selection a new view.
+    let token = UUID()
 }

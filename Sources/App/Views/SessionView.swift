@@ -13,6 +13,9 @@ struct SessionView: View {
     var boss: Bool = false
     var golden: Bool = false
     var training: Bool = false
+    /// Exhibition boss replay of a cleared world (FeatureFlag.bossReplays):
+    /// the full fight, but nothing recorded — see SessionViewModel.
+    var exhibition: Bool = false
     var testFormat: MasteryStage? = nil
     /// "Train the +Ns" tapped on a lost golden fight — forwarded to WrapView;
     /// the owner (MapView) is responsible for closing this session and
@@ -118,6 +121,7 @@ struct SessionView: View {
             : (args.contains("-demoFeedback") ? .feedback : .off)
         vm = SessionViewModel(service: LearningService(context: context),
                               speedRound: speedRound, boss: boss, golden: golden, training: training,
+                              exhibition: exhibition,
                               auto: mode, worldIndex: worldIndex, testFormat: testFormat)
         if args.contains("-demoStar") {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { vm?.debugShowStar(2) }

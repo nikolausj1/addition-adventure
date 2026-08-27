@@ -93,6 +93,19 @@ final class SessionViewModel {
     /// This is a "Train the +Ns" practice round (offered on a lost golden
     /// fight): untimed, world-scoped, not a quest, not a boss.
     let training: Bool
+    /// Exhibition boss replay (FeatureFlag.bossReplays): a re-fight of an
+    /// already-cleared world's boss, entered from its map node. Full boss
+    /// mechanics and presentation — HP bar, crits, instant win at HP 0 —
+    /// but the most inert mode of all: NOTHING is recorded. No ladder
+    /// writes (service.record is skipped per answer), no XP, no speed-bonus
+    /// or best-streak writes, no quest star, and no SessionRecord persisted
+    /// (SessionRecords feed the adaptive floor median — an exhibition must
+    /// not pollute it). The one exception: a fight played to its wrap
+    /// (completed, not X-ed out) still registers streak practice — the
+    /// day's flame credits "showed up and played". The verdict is computed
+    /// LOCALLY from hits vs bossHPTotal; clearedWorlds is never read or
+    /// written, so the world stays cleared regardless.
+    let exhibition: Bool
     /// Faster-than-threshold boss answers land CRITICAL hits (bigger flinch + callout).
     private(set) var critCount = 0
     private(set) var lastHitCritical = false
@@ -220,9 +233,10 @@ final class SessionViewModel {
     private(set) var starsPerWorldGoal = WorldCatalog.starsPerWorld
 
     init(service: LearningService, speedRound: Bool = false, boss: Bool = false,
-         golden: Bool = false, training: Bool = false,
+         golden: Bool = false, training: Bool = false, exhibition: Bool = false,
          auto: AutoMode = .off, worldIndex: Int = 0, testFormat: MasteryStage? = nil) {
         self.service = service
+        self.exhibition = exhibition
         // Speed Round, boss challenges (incl. golden fights), and dev fluency
         // always show the timer; regular practice only when the profile opts
         // into "speed" timing. A golden fight's per-question `timed` flag
@@ -336,12 +350,27 @@ final class SessionViewModel {
         // A golden fight's recognition-format questions are the same story:
         // a fact never seen before is served as multiple choice so it stays
         // reachable, but that MC response time shouldn't pollute the fact's
-        // speed baseline (mirrors how trueFalse is verifyOnly).
-        let result = service.record(prompt: q.prompt, format: q.format,
+        // speed baseline (mirrors how trueFalse is verifyOnly). Training
+        // rounds are untimed, pressure-free review by design — their
+        // (naturally slower) response times stay out of the baseline too.
+        let result: LearningService.AnswerResult
+        if exhibition {
+            // Exhibition replay: no ladder write, no XP, no milestone — the
+            // fight is pure spectacle. The zeroed result keeps every
+            // downstream read (lastXP, justMastered, becameFluent,
+            // celebration) inert without special-casing them one by one.
+            result = LearningService.AnswerResult(correct: correct, xp: 0,
+                                                  becameFluent: false,
+                                                  becameMastered: false,
+                                                  celebration: nil)
+        } else {
+            result = service.record(prompt: q.prompt, format: q.format,
                                     correct: correct, responseTime: rt,
                                     countsTime: !q.missingFactor && !q.trueFalse
+                                        && !training
                                         && !(golden && q.format == .recognition),
                                     verifyOnly: q.trueFalse)
+        }
         touched.insert(q.fact)
         totalAnswered += 1
         if correct { correctCount += 1 }
@@ -674,6 +703,24 @@ final class SessionViewModel {
     private func finish() {
         stage = .finished
         if auto == .wrap { pendingStarEarned = nil }   // demo autoplay: don't trap the wrap
+        if exhibition {
+            // Exhibition replay: no finishSession — that path persists a
+            // SessionRecord (which feeds the adaptive floor median) and runs
+            // the boss clear/milestone machinery; an exhibition writes none
+            // of it. The verdict is LOCAL — hits vs the pass bar — never a
+            // clearedWorlds read (a cleared world is always in that set, so
+            // the readback would call every replay a win) and never a write
+            // (the world stays cleared regardless).
+            bossPassed = correctCount >= bossHPTotal
+            // The one write: a fight played to its wrap (won, or lost after
+            // seeing it through — not X-ed out mid-fight) still lights the
+            // day's flame. Showing up and playing counts.
+            if bossPassed || index >= queue.count {
+                service.registerExhibitionPractice()
+            }
+            Feedback.fire(bossPassed ? .levelUp : .wrong)
+            return
+        }
         // Strict flame: dev jumps never count; quests count when the day's star
         // landed or real work was put in; boss, golden, training, and speed
         // runs always count.

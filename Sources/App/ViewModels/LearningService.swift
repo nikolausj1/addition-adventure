@@ -460,6 +460,17 @@ struct LearningService {
         return removed
     }
 
+    /// Exhibition boss replay's ONLY write (FeatureFlag.bossReplays): the
+    /// fight was played to its wrap, so the day's flame credits "showed up
+    /// and played" — the same registerPractice a completed quest routes
+    /// through in finishSession. Nothing else: no SessionRecord (the
+    /// adaptive floor median must not see exhibition rounds), no XP, no
+    /// milestones, no world state.
+    func registerExhibitionPractice(now: Date = .now) {
+        _ = activeProfile().registerPractice(on: now)
+        try? context.save()
+    }
+
     /// Celebration bonuses on a correct answer: streak-milestone + speed XP go
     /// straight to the running total, and the lifetime best-streak / speed-bonus
     /// tallies advance. Called per correct quest answer (bonus may be 0 — this

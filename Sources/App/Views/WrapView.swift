@@ -21,10 +21,19 @@ struct WrapView: View {
     /// Golden fights also set `bossWorldIndex`, so these are explicitly
     /// gated to regular boss fights — the golden result gets its own
     /// presentation below, never this one.
-    private var clearedThisSession: Bool { vm.bossWorldIndex != nil && !vm.golden && vm.bossPassed }
-    private var bossFailed: Bool { vm.bossWorldIndex != nil && !vm.golden && !vm.bossPassed }
+    private var clearedThisSession: Bool {
+        vm.bossWorldIndex != nil && !vm.golden && !vm.exhibition && vm.bossPassed
+    }
+    private var bossFailed: Bool {
+        vm.bossWorldIndex != nil && !vm.golden && !vm.exhibition && !vm.bossPassed
+    }
     private var goldenWon: Bool { vm.golden && vm.bossPassed }
     private var goldenEscaped: Bool { vm.golden && !vm.bossPassed }
+    /// Exhibition replay verdicts (FeatureFlag.bossReplays): local to the
+    /// fight — the world stays cleared either way, and a loss is the golden
+    /// soft-fail (the guardian escapes; zero failure framing, no numbers).
+    private var exhibitionWon: Bool { vm.exhibition && vm.bossPassed }
+    private var exhibitionEscaped: Bool { vm.exhibition && !vm.bossPassed }
 
     private var clearedName: String {
         WorldCatalog.worlds[safe: vm.bossWorldIndex ?? vm.worldStatBefore.index]?.name ?? "World"
@@ -34,6 +43,8 @@ struct WrapView: View {
     }
 
     private var headline: String {
+        if exhibitionWon { return "\(guardianName) defeated — again!" }
+        if exhibitionEscaped { return "The \(guardianName) escaped!" }
         if goldenWon { return "\(clearedName) shines GOLD!" }
         if goldenEscaped { return "The \(guardianName) escaped!" }
         if clearedThisSession { return "\(clearedName) cleared!" }
@@ -78,7 +89,7 @@ struct WrapView: View {
             .darkPlate()
             .padding(compact ? 10 : Theme.Metric.pad)
             .background {
-                if clearedThisSession || goldenWon {
+                if clearedThisSession || goldenWon || exhibitionWon {
                     ParticleBurst(kind: .confetti,
                                   colors: [Theme.Color.accent, Theme.Color.correct,
                                            theme.primary, .white, theme.accent],
@@ -91,6 +102,8 @@ struct WrapView: View {
     }
 
     private var headlineIcon: String {
+        if exhibitionWon { return "trophy.fill" }
+        if exhibitionEscaped { return "flag.checkered" }
         if goldenWon { return "star.circle.fill" }
         if goldenEscaped { return "flag.checkered" }
         if clearedThisSession { return "trophy.fill" }
@@ -98,6 +111,8 @@ struct WrapView: View {
         return "checkmark.seal.fill"
     }
     private var headlineTint: Color {
+        if exhibitionWon { return Theme.Color.accent }
+        if exhibitionEscaped { return .white }
         if goldenWon { return Theme.Color.accent }
         if goldenEscaped { return .white }
         if clearedThisSession { return Theme.Color.accent }
@@ -112,7 +127,7 @@ struct WrapView: View {
                 .foregroundStyle(headlineTint)
                 .symbolRenderingMode(.hierarchical)
                 .background {
-                    if !bossFailed, !goldenEscaped {
+                    if !bossFailed, !goldenEscaped, !exhibitionEscaped {
                         ParticleBurst(kind: .stars, colors: [Theme.Color.accent, .white], count: 14)
                             .frame(width: compact ? 150 : 260, height: compact ? 150 : 260)
                     }
@@ -122,8 +137,10 @@ struct WrapView: View {
                 .multilineTextAlignment(.center)
 
             // Golden Guardians acceptance criterion: no fraction, percentage,
-            // or fact count is ever shown on a golden result screen.
-            if !vm.golden {
+            // or fact count is ever shown on a golden result screen. An
+            // exhibition replay is the same: no XP totals, no fact counts —
+            // nothing was recorded, so there is nothing honest to show.
+            if !vm.golden && !vm.exhibition {
                 HStack(spacing: compact ? 18 : 28) {
                     stat("\(vm.totalAnswered)", "questions")
                     stat("\(Int(vm.accuracy * 100))%", "accuracy")
@@ -172,7 +189,35 @@ struct WrapView: View {
         let allCleared = cleared.count == WorldCatalog.count
 
         VStack(spacing: compact ? 6 : 8) {
-            if let bossWorld = vm.bossWorldIndex, vm.golden {
+            if vm.exhibition, let bossWorld = vm.bossWorldIndex {
+                // Exhibition replay result: no star flow, no numbers — the
+                // world stays cleared either way. A loss borrows the golden
+                // soft-fail language (the guardian escapes; zero failure
+                // framing), and BOTH outcomes offer world-scoped untimed
+                // training via the same onTrain plumbing the golden wrap's
+                // "TRAIN THE +Ns" button uses.
+                let boss = WorldCatalog.worlds[safe: bossWorld]?.bossName ?? "Guardian"
+                let worldName = WorldCatalog.worlds[safe: bossWorld]?.name ?? "This world"
+                VStack(spacing: 12) {
+                    Text(vm.bossPassed
+                         ? "The \(boss) bows once more — \(worldName) remembers its champion!"
+                         : "The \(boss) slipped away — but \(worldName) is still yours. Train up and try again!")
+                        .font(Theme.Font.body(compact ? 14 : 18)).foregroundStyle(.white)
+                        .multilineTextAlignment(.center)
+                        // Wrap, never truncate: sibling ChunkyKey buttons bid
+                        // for the VStack's height, and the Text loses that
+                        // negotiation (an ellipsis mid-flavor-line looks
+                        // broken). Reserve its full wrapped height.
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button { onTrain(bossWorld) } label: {
+                        Text("REPLAY THIS WORLD")
+                            .font(Theme.Font.display(16))
+                            .frame(maxWidth: .infinity).padding(.vertical, 12)
+                    }
+                    .buttonStyle(ChunkyKeyStyle(base: theme.primary, deep: theme.deep,
+                                                corner: Theme.Metric.corner))
+                }
+            } else if let bossWorld = vm.bossWorldIndex, vm.golden {
                 // Golden Guardian result: no fractions, no percentages, no
                 // failure framing on a loss — the guardian escaped, that's all.
                 let boss = WorldCatalog.worlds[safe: bossWorld]?.bossName ?? "Guardian"

@@ -1,5 +1,22 @@
 import SwiftUI
 
+/// App-level feature switches. One place, compile-time defaults, with a
+/// launch-arg override so the simulator can exercise a dark-shipped feature.
+enum FeatureFlag {
+    /// Pre-map boss replays (tap a cleared world → exhibition re-fight of its
+    /// boss). Ships DARK on purpose: Vinny is one boss away from map
+    /// completion, and replays would preview the animated bosses before the
+    /// Aurora Summit fight and the golden-era reveal land. Flip to true for
+    /// the next playthrough.
+    static let bossReplays = false
+    /// The live switch: the compile-time default OR'd with the sim-only
+    /// launch arg, so verification can exercise the feature without shipping
+    /// it lit.
+    static var bossReplaysEnabled: Bool {
+        bossReplays || ProcessInfo.processInfo.arguments.contains("-enableBossReplays")
+    }
+}
+
 /// The single design-token layer. Every colour, radius, font, and motion constant
 /// routes through here so the v1 SwiftUI/SF-Symbols look can be swapped for custom
 /// or generated art (the fast-follow) by editing tokens, not views.
