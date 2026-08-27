@@ -451,6 +451,15 @@ struct LearningService {
         return socket
     }
 
+    /// Dev repair tool: take back the current world's most recent star (see
+    /// Profile.removeQuestStar). Returns false when there was none to remove.
+    @discardableResult
+    func removeQuestStar() -> Bool {
+        let removed = activeProfile().removeQuestStar()
+        try? context.save()
+        return removed
+    }
+
     /// Celebration bonuses on a correct answer: streak-milestone + speed XP go
     /// straight to the running total, and the lifetime best-streak / speed-bonus
     /// tallies advance. Called per correct quest answer (bonus may be 0 — this

@@ -152,6 +152,18 @@ final class Profile {
         return starsInCurrentWorld - 1
     }
 
+    /// Take back the most recent star in the current world (dev repair tool —
+    /// e.g. a parent accidentally earning a star on the child's profile).
+    /// Mirror of `awardQuestStar`: both the socket count and the lifetime total
+    /// step back, never below zero. Returns false when there is nothing to remove.
+    @discardableResult
+    func removeQuestStar() -> Bool {
+        guard starsInCurrentWorld > 0 else { return false }
+        currentWorldStars = starsInCurrentWorld - 1
+        questStars = max(0, questStars - 1)
+        return true
+    }
+
     /// Records practice on `date` and returns the new streak length. One missed day
     /// is forgiven (summer grace); two or more in a row resets to 1. Progress itself
     /// is never destroyed (§3, no punishment).

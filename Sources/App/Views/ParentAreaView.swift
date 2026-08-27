@@ -393,6 +393,10 @@ struct ParentAreaView: View {
                 devBtn("Unlock all worlds", "lock.open.fill") { service.applyDemoProgress(complete: false) }
             }
             devBtn("Master everything (100%)", "checkmark.seal.fill") { service.applyDemoProgress(complete: true) }
+            // Repair tool: undo an accidentally earned star (the day's star
+            // always lands in the CURRENT world, even from a practice replay —
+            // a parent testing on the child's profile can advance real pacing).
+            devBtn("Remove a star (undo)", "star.slash.fill") { service.removeQuestStar() }
 
             Divider().padding(.vertical, 2)
             // On-device preview of the whole golden-era experience — no
