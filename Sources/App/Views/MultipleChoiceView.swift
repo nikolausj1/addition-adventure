@@ -84,12 +84,18 @@ struct PromptText: View {
     let text: String
     init(_ text: String) { self.text = text }
 
-    private static let plaqueHeight: CGFloat = 150
+    /// Height and padding are set for BREATHING ROOM around the numeral, to
+    /// match the roomier feel of the sibling app's plaques. Because the
+    /// 9-slice caps are fixed sizes, every extra point of height or width
+    /// lands in the stretched middle — the panel grows while the ornate rim
+    /// stays exactly as thick as it was, which is the whole point: more wood
+    /// around the numbers rather than a heavier frame.
+    private static let plaqueHeight: CGFloat = 172
     /// Clear space kept between the numeral and the frame's ornate ends.
-    private static let sidePadding: CGFloat = 44
+    private static let sidePadding: CGFloat = 72
     /// Never narrower than this, so a short prompt still reads as a plaque
     /// rather than a token.
-    private static let minPlaqueWidth: CGFloat = 300
+    private static let minPlaqueWidth: CGFloat = 340
     /// Optical centering. Every frame is bottom-heavy — the lower rim is
     /// thicker than the upper one and several carry a shadow lip below it —
     /// so a numeral centered on the frame's geometric middle reads low. The
