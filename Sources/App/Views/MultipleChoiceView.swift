@@ -90,6 +90,14 @@ struct PromptText: View {
     /// Never narrower than this, so a short prompt still reads as a plaque
     /// rather than a token.
     private static let minPlaqueWidth: CGFloat = 300
+    /// Optical centering. Every frame is bottom-heavy — the lower rim is
+    /// thicker than the upper one and several carry a shadow lip below it —
+    /// so a numeral centered on the frame's geometric middle reads low. The
+    /// 9-slice keeps both rims at their true size while compressing only the
+    /// middle, which preserves that imbalance, so the text is lifted by about
+    /// half the rim difference. Applied as an offset, not padding, so the
+    /// plaque's size is unaffected.
+    private static let opticalRise: CGFloat = -5
 
     var body: some View {
         if let skin = Self.stretchableSkin(theme.buttonImage) {
@@ -100,6 +108,7 @@ struct PromptText: View {
             // (Before this, the text sat in a ZStack with no width to shrink
             // against, so a long prompt simply overflowed the frame.)
             numeral
+                .offset(y: Self.opticalRise)
                 .padding(.horizontal, Self.sidePadding)
                 .frame(minWidth: Self.minPlaqueWidth)
                 .frame(height: Self.plaqueHeight)
