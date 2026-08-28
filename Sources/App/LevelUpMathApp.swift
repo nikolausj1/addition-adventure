@@ -21,6 +21,10 @@ struct LevelUpMathApp: App {
         else if args.contains("-demoGoldenEra") { service.applyDemoGoldenEra() }
         else if args.contains("-demoProgress") { service.applyDemoProgress(complete: false) }
         if args.contains("-forceTrueFalse") { LearningService.trueFalseDenominator = 1 }
+        // Forces the SUBTRACTION-inverse form ("24 − 12 = ?"), which is by far
+        // the widest prompt the app serves — the case that overflowed the
+        // question plaque. Verification only.
+        if args.contains("-forceMissingFactor") { LearningService.missingFactorDenominator = 1 }
         if let i = args.firstIndex(of: "-starsGoal"), i + 1 < args.count, let n = Int(args[i + 1]) {
             service.setStarsPerWorldGoal(n)   // simulator verification only
         }

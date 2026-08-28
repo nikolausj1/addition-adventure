@@ -84,19 +84,28 @@ struct PromptText: View {
     let text: String
     init(_ text: String) { self.text = text }
 
+    private static let plaqueHeight: CGFloat = 150
+    /// Clear space kept between the numeral and the frame's ornate ends.
+    private static let sidePadding: CGFloat = 44
+    /// Never narrower than this, so a short prompt still reads as a plaque
+    /// rather than a token.
+    private static let minPlaqueWidth: CGFloat = 300
+
     var body: some View {
-        if Art.exists(theme.buttonImage) {
-            ZStack {
-                Image(theme.buttonImage)
-                    .resizable().scaledToFit()
-                    .frame(height: 150)
-                    .shadow(color: .black.opacity(0.45), radius: 10, y: 5)
-                numeral
-                    .background(
-                        Ellipse().fill(Color.black.opacity(0.38))
-                            .blur(radius: 16)
-                            .padding(.horizontal, -30).padding(.vertical, -10))
-            }
+        if let skin = Self.stretchableSkin(theme.buttonImage) {
+            // The PLAQUE stretches to fit the question; the numeral never
+            // shrinks. The frame is 9-sliced (resizable(capInsets:)) so its
+            // ornate ends stay their true size while only the flat middle
+            // widens — "4 + 2" and "24 − 12 = ?" both render at full 58pt.
+            // (Before this, the text sat in a ZStack with no width to shrink
+            // against, so a long prompt simply overflowed the frame.)
+            numeral
+                .padding(.horizontal, Self.sidePadding)
+                .frame(minWidth: Self.minPlaqueWidth)
+                .frame(height: Self.plaqueHeight)
+                .background(skin)
+                .fixedSize(horizontal: true, vertical: false)
+                .shadow(color: .black.opacity(0.45), radius: 10, y: 5)
         } else {
             numeral
                 .padding(.horizontal, 36).padding(.vertical, 12)
@@ -109,6 +118,28 @@ struct PromptText: View {
             .font(Theme.Font.display(58))
             .foregroundStyle(.white)
             .shadow(color: .black.opacity(0.55), radius: 3, y: 2)
-            .minimumScaleFactor(0.6).lineLimit(1)
+            // Safety net only: the plaque widens to fit, so this should never
+            // engage in normal play.
+            .minimumScaleFactor(0.5).lineLimit(1)
+    }
+
+    /// The world's frame as a 9-slice: corners and ornate ends held at their
+    /// own size, flat middle free to stretch. Caps are fractions of the
+    /// asset's POINT size — the plaque imagesets are declared @3x so their
+    /// point size matches the size they render at, which is what keeps the
+    /// caps from swamping the destination.
+    static func stretchableSkin(_ name: String) -> Image? {
+        #if canImport(UIKit)
+        guard let ui = UIImage(named: name) else { return nil }
+        let s = ui.size
+        let capH = min(s.width * 0.30, (minPlaqueWidth - 20) / 2)
+        let capV = min(s.height * 0.32, (plaqueHeight - 20) / 2)
+        return Image(uiImage: ui)
+            .resizable(capInsets: EdgeInsets(top: capV, leading: capH,
+                                             bottom: capV, trailing: capH),
+                       resizingMode: .stretch)
+        #else
+        return nil
+        #endif
     }
 }
