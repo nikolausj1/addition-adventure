@@ -116,6 +116,25 @@ enum Textures {
 }
 
 extension Color {
+    /// Hue in degrees (0-360), or nil if it can't be resolved. Used to keep the
+    /// Enter key from landing on the same hue as the world's own key colour.
+    var hueDegrees: Double? {
+        #if canImport(UIKit)
+        var h: CGFloat = 0, s: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        guard UIColor(self).getHue(&h, saturation: &s, brightness: &b, alpha: &a) else { return nil }
+        return Double(h) * 360
+        #else
+        return nil
+        #endif
+    }
+
+    /// Shortest distance between two hues, in degrees (0-180).
+    func hueDistance(to other: Color) -> Double? {
+        guard let a = hueDegrees, let b = other.hueDegrees else { return nil }
+        let d = abs(a - b).truncatingRemainder(dividingBy: 360)
+        return min(d, 360 - d)
+    }
+
     /// Lighten (positive) or darken (negative) toward white/black in RGB space.
     func shaded(by amount: Double) -> Color {
         #if canImport(UIKit)

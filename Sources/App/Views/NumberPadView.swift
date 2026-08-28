@@ -32,12 +32,27 @@ struct NumberPadView: View {
                     .accessibilityLabel("Delete")
                 digit(0)
                 key(systemImage: "checkmark",
-                    base: Theme.Color.correct, deep: Theme.Color.correct.shaded(by: -0.35),
+                    base: enterBase, deep: enterBase.shaded(by: -0.35),
                     enabled: enterEnabled, action: onEnter)
                     .accessibilityLabel("Enter")
             }
         }
         .frame(maxWidth: compact ? 380 : 430)
+    }
+
+    /// Enter must never read as just another digit key. It is green by default
+    /// ("go"), but four of the seven worlds are themselves green, teal or
+    /// cyan — Aurora Summit, the last world, sits 2 degrees off the green, and
+    /// Firefly Bayou, Giant's Grove and The Sunken Reef are within 42 — so on
+    /// those pads a green Enter vanishes into the digits. When the world's key
+    /// colour is within 45 degrees of the green, Enter switches to the warm
+    /// gold instead, which is far from every world primary except Wandering
+    /// Isles, and that world keeps the green.
+    private var enterBase: Color {
+        let keyColor = keyTint ?? theme.primary
+        let green = Theme.Color.correct
+        guard let d = keyColor.hueDistance(to: green), d < 45 else { return green }
+        return Theme.Color.accent
     }
 
     private func digit(_ n: Int) -> some View {

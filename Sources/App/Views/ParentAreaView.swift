@@ -390,7 +390,7 @@ struct ParentAreaView: View {
             Divider().padding(.vertical, 2)
             HStack(spacing: 10) {
                 devBtn("Preview certificate", "trophy.fill") { showCert = true }
-                devBtn("Unlock all worlds", "lock.open.fill") { service.applyDemoProgress(complete: false) }
+                devBtn("Unlock all worlds", "lock.open.fill") { service.applyDemoUnlockAll() }
             }
             devBtn("Master everything (100%)", "checkmark.seal.fill") { service.applyDemoProgress(complete: true) }
             // Repair tool: undo an accidentally earned star (the day's star

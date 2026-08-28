@@ -120,6 +120,22 @@ struct LearningService {
     /// Debug only (launch-arg gated): seed progress so map/speed/certificate states can be
     /// previewed without playing through. `complete` masters everything.
     func applyDemoProgress(complete: Bool) {
+        applyDemoSeed(clearedWorlds: complete ? WorldCatalog.count : 3)
+    }
+
+    /// Debug only: open the whole map so the LAST world can be played and
+    /// tested without grinding to it. Deliberately leaves world 7 uncleared —
+    /// clearing every world completes the map, which hands the profile to the
+    /// Golden Guardians endgame instead of letting you play the last world.
+    /// (The old "Unlock all worlds" button called applyDemoProgress(false),
+    /// which only ever cleared three worlds; the label had been lying.)
+    func applyDemoUnlockAll() {
+        applyDemoSeed(clearedWorlds: WorldCatalog.count - 1)
+    }
+
+    private func applyDemoSeed(clearedWorlds: Int) {
+        let complete = clearedWorlds >= WorldCatalog.count
+        let currentWorld = min(clearedWorlds, WorldCatalog.count - 1)
         let p = activeProfile()
         let now = Date()
         p.onboarded = true   // demo jumps never trip the first-run gate
@@ -139,20 +155,20 @@ struct LearningService {
         p.guardiansAssembleCelebrated = false
         p.guardiansColorFloodPlayed = false
         // Bosses count as beaten for the demo-cleared worlds; stars match.
-        for w in 0..<WorldCatalog.count where complete || w <= 2 { p.markWorldCleared(w) }
+        for w in 0..<clearedWorlds { p.markWorldCleared(w) }
         p.questStars = complete ? p.starsPerWorldGoal * WorldCatalog.count
-                                : p.starsPerWorldGoal * 3 + 2   // 3 cleared + 2 in world 4
+                                : p.starsPerWorldGoal * clearedWorlds + 2   // cleared worlds + 2 in the current one
         p.currentWorldStars = complete ? p.starsPerWorldGoal : 2
         p.bestStreak = complete ? 41 : 18
         p.speedBonusCount = complete ? 620 : 214
         for f in p.facts {
             let w = WorldCatalog.worldIndex(ofFact: f.id)
-            if complete || w <= 2 {
+            if w < clearedWorlds {
                 f.introduced = true; f.stageRaw = MasteryStage.mastered.rawValue; f.box = 5
                 f.masteredDate = now; f.totalAttempts = 6; f.totalCorrect = 6
                 f.recentTimes = [1.2, 1.0, 1.1]; f.averageTime = 1.1
                 f.fluencyFastCount = 3; f.fluencyFastDays = [20240101, 20240102]
-            } else if w == 3 {
+            } else if w == currentWorld {
                 // Partial current world so a node stays "current".
                 let fluent = (f.a + f.b).isMultiple(of: 2)
                 f.introduced = true
