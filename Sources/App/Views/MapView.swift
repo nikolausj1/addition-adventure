@@ -199,38 +199,14 @@ struct MapView: View {
                     VStack { Spacer(); goldenCaption(allGilded: allGilded) }
                 }
             }
-            // Full-bleed title banner: painted sky fades into the map's fog.
-            if Art.exists("map_banner") {
-                VStack(spacing: 0) {
-                    // Full-bleed, top-pinned on iPad (natural fitted height, 3.57:1).
-                    // NOTE: never use `.frame(maxHeight: .infinity)` on a scaledToFit
-                    // image — it expands the frame and centers the art vertically,
-                    // floating the banner into the middle of the screen.
-                    //
-                    // iPhone landscape uses a SEPARATE, horizontally outpainted
-                    // 5.57:1 asset. At the ~150pt cap the short screen needs (the
-                    // full-width 3.57:1 art buries the top row of nodes), the
-                    // original only spanned ~535pt of a 956pt screen and left bare
-                    // map either side. Scaling it up to fill instead blew up the
-                    // wordmark, so the art was widened rather than enlarged. 956/5.57
-                    // ≈ 172, so width is the binding constraint and it reaches both
-                    // edges. Falls back to the original capped banner until the
-                    // wide asset lands (Art.exists tiering, as everywhere).
-                    if compact {
-                        if Art.exists("map_banner_wide") {
-                            Image("map_banner_wide").resizable().scaledToFit().frame(maxHeight: 175)
-                        } else {
-                            Image("map_banner").resizable().scaledToFit().frame(maxHeight: 150)
-                        }
-                    } else {
-                        Image("map_banner").resizable().scaledToFit()
-                    }
-                    Spacer(minLength: 0)
-                }
-                .ignoresSafeArea(edges: [.top, .horizontal])
-                .allowsHitTesting(false)
-                .saturation(sceneIsBW ? 0 : 1)
-            }
+            // NOTE: there is no separate title banner layer any more. The map is
+            // one painting (`map_bg`) with the Addition Adventure lockup painted
+            // into its sky, so the title arrives with the world instead of being
+            // a strip pinned over it — which is also what killed the old seam
+            // where the banner's horizon disagreed with the map's. The golden-era
+            // desaturation now reaches the title too (it rides the backdrop's own
+            // `.saturation`), which is on-theme: the guardians drain the whole
+            // world's color, wordmark included.
             VStack { header; Spacer() }
             // Guidance text refinement: the one-time "win it back" line,
             // fading in under the banner once the reveal storm settles (see
@@ -508,13 +484,23 @@ struct MapView: View {
 
     // MARK: Backdrop
 
+    /// The map is ONE painting with the title lockup in its sky, so the art has
+    /// to match the screen's shape or the lockup gets cropped: filling a 2.16:1
+    /// iPhone landscape with the 4:3 iPad art center-crops ~19% off the top and
+    /// eats the wordmark. iPhone therefore gets its own widescreen painting of
+    /// the same world (same pattern the old wide banner used), with Art.exists
+    /// tiering back to the iPad art if it is ever missing.
+    private var mapBackgroundName: String {
+        compact && Art.exists("map_bg_wide") ? "map_bg_wide" : "map_bg"
+    }
+
     private var mapBackdrop: some View {
         ZStack {
-            if Art.exists("map_bg") {
+            if Art.exists(mapBackgroundName) {
                 // Contained fill (see WorldBackdrop): keeps the image's overflow
                 // out of layout so 4:3 screens don't push siblings off-screen.
                 Color.clear
-                    .overlay(Image("map_bg").resizable().scaledToFill())
+                    .overlay(Image(mapBackgroundName).resizable().scaledToFill())
                     .clipped()
             } else {
                 LinearGradient(colors: [Theme.Color.bg, Theme.Color.primary.opacity(0.25)],
@@ -592,20 +578,8 @@ struct MapView: View {
             .buttonStyle(PopButtonStyle())
             .accessibilityLabel("My profile")
             Spacer()
-            // Title lives in the full-bleed banner; fall back to the floating
-            // logo or text when banner art is absent.
-            if !Art.exists("map_banner") {
-                if Art.exists("map_header") {
-                    Image("map_header").resizable().scaledToFit()
-                        .frame(height: 118)
-                        .shadow(color: .black.opacity(0.45), radius: 10, y: 5)
-                } else {
-                    Text("Addition Adventure")
-                        .font(Theme.Font.display(20)).foregroundStyle(.white).shadow(radius: 3)
-                        .padding(.top, 10)
-                }
-                Spacer()
-            }
+            // No title element here: the lockup is painted into `map_bg` itself.
+            // Drawing `map_header` on top would double it.
             // Golden Guardians WP5 (spec acceptance 1): the trophy button
             // gates on MAP CONQUEST, not mastery — beating the map awards
             // the certificate immediately, with no fact-mastery precondition.
